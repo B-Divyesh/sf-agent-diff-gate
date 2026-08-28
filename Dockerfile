@@ -1,16 +1,16 @@
 FROM node:22-alpine AS frontend
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 COPY frontend ./frontend
 COPY vite.config.ts tsconfig.json ./
 RUN npm run build
 
-FROM rust:1.86-alpine AS build
+FROM rust:1.88-alpine AS build
 ARG BUILD_SHA=dev
 WORKDIR /app
 RUN apk add --no-cache musl-dev
-COPY Cargo.toml Cargo.lock* ./
+COPY Cargo.toml Cargo.lock ./
 COPY backend ./backend
 RUN cargo build --release
 

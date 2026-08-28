@@ -10,10 +10,10 @@ Open `/demo` after starting the app, or use the live demo at `https://agent-diff
 
 ## Run locally
 
-Prerequisites: Node 22+ and Rust 1.86+.
+Prerequisites: Node 22+ and Rust 1.88+.
 
 ```sh
-npm install
+npm ci
 npm run build
 cargo run
 ```

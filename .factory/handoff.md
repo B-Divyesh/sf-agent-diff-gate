@@ -1,33 +1,51 @@
-# Diff Gate handoff
+# Diff Gate repair handoff
 
-## Delivered
+## Repaired release blockers
 
-- A mobile-first Diff Gate review desk with a complete, one-click sample packet at `/demo`.
-- Review evidence covers changed files, contract change, migration, test evidence, risky paths, accountable owner, hold/ready state, keyboard-operable review resolution, and JSON packet export.
-- Rust/axum + SQLite API with `GET/POST /api/packets`, `GET /api/packets/:id`, `/health`, a 40 requests/second per-forwarded-IP limit with `429` and `Retry-After`, structured logs, and a no-required-env runtime.
-- Team checkout link, local license restore, `/privacy`, `/terms`, metadata, sitemap, robots, security config, a styled 404, and generated original dithered print art.
-- `assets/src/change-control.png` is original factory-generated source art. Its prompt/deployment metadata sidecar and visual provenance are in `.factory/design.md`.
+- Reproduced the ACR failure before changing it with `cargo +1.86.0 build --release`. The locked ICU 2.3 packages rejected Rust 1.86 and reported that Rust 1.88 is required.
+- Raised the Docker Rust build stage from `rust:1.86-alpine` to `rust:1.88-alpine`, retained the committed `Cargo.lock`, and changed the frontend stage to deterministic `npm ci`.
+- Added a Rust regression test that asserts the locked ICU 2.3 dependency and the Rust 1.88 Docker build stage. The same test checks that the lockfile, non-root runtime port, and `EXPOSE 8080` contract remain present.
+- Refactored the service router so all non-health routes, including frontend and packet routes, share per-forwarded-IP limiting. It uses the first `X-Forwarded-For` hop and returns `429` with `Retry-After: 1` after 40 requests in a one-second window. `/health` stays available for probes and returns the build SHA.
+- Corrected startup logging so it accurately reports whether the SQLite configuration was supplied or generated; no runtime environment variable is required.
+- Made the documented `demo:diff-gate` session-storage sandbox real, with persistence across reload, reset, and disposal when starting for real. Canonical URLs now follow client-side route changes.
+- Added 44px navigation/review targets and a higher-contrast dark treatment. The design record now accurately states that the product uses a self-hosted system font stack.
 
-## Verify
+## Verification evidence
 
-Ran successfully:
+All commands below passed from a clean dependency install:
 
 ```sh
+npm ci
+npx tsc --noEmit
 npm test
-cargo test
 npm run build
+cargo fmt --check
+cargo test
+cargo clippy -- -D warnings
+cargo +1.88.0 build --release
 ```
 
-`npm test`: 3 Playwright tests passed, including both claim tests. `cargo test`: passed. The Vite production output is 11.7 KB JS / 10.1 KB CSS uncompressed; the hero WebP is 134 KB. The project has no runtime third-party scripts, fonts, or analytics.
+- `npm test`: 7 Playwright tests passed. This includes both claims, desktop keyboard review, a 390px no-overflow check, offline-after-load review, demo namespace/reset regression, and a Playwright Axe scan with zero serious or critical findings.
+- `cargo test`: 3 tests passed: health/build identity, forwarded-IP rate limiting with `Retry-After`, and the Rust/ICU Docker-stage regression.
+- Production Vite output: 12.35 KB JavaScript (4.69 KB gzip) and 10.34 KB CSS (3.26 KB gzip). There are no third-party runtime scripts, fonts, or analytics.
+- `cargo +1.86.0 build --release` failed as expected before the repair; `cargo +1.88.0 build --release` passed after it.
+- The release binary was run with `env -i` (no application configuration), listened on port 8080, returned `{"status":"ok","build":"dev"}` from `/health`, and served `/demo` with 200. A 41-request forwarded-IP smoke yielded 40 × 200 then 429 with `Retry-After: 1`.
+- `/opt/fleet/lib/verify-url.sh http://127.0.0.1:8080/demo` passed: 585ms local load, zero console errors, title/lang/main/one-h1 present, and zero images missing alt text. Desktop and 390px screenshots are in the ephemeral verifier output directory used for that run.
+- Local Lighthouse (mobile defaults, performance and accessibility categories) scored 100 performance and 100 accessibility against the production release server.
 
-A release-binary smoke check also returned `200` for `/health` and `/demo`, accepted a `POST /api/packets`, and returned `429` after 40 rapid API requests. Docker itself is not installed in this worker, so the Docker command could not be executed here; the multi-stage build is included at the repository root.
+## Run and deploy
 
-## Quality notes
+```sh
+npm ci
+npm run build
+cargo run
+# or build the production container:
+docker build --build-arg BUILD_SHA=$(git rev-parse --short HEAD) -t diff-gate .
+docker run --rm -p 8080:8080 diff-gate
+```
 
-Manual visual check was made of the generated 1024px source: it is a clean, text-free cyan/coral/yellow/navy halftone print desk with no logos or people. The production hero WebP is 900×600 and 134 KB; the 1200×630 social crop is also 134 KB. The browser tests exercise keyboard review. A full Lighthouse and axe CLI run remains a factory deployment verification step.
+The runtime needs only `PORT` (defaults to 8080); it generates its SQLite `/data/diff-gate.db` location when `DATABASE_URL` is absent. The root Dockerfile is multi-stage, runs as a non-root user, and does not depend on `.git` in its build context.
 
-## Known gaps / next steps
+## Known deployment note
 
-- The packet API is ready for connection, but GitHub App OAuth/webhook configuration is intentionally not included: it needs a factory-owned GitHub App client ID, callback URL, and installation credentials. Until then, the product has the functional review-packet and demo flow but does not ingest private GitHub PRs.
-- Add signed team identities and GitHub webhook ingestion when the factory provisions the app credentials.
-- Wire license verification to Sociobot on the deployed sociobot.in origin; the current UI stores a restored token and never blocks the free demo.
+This worker has no local Docker daemon. The committed Dockerfile was validated by the Rust 1.88 release build and regression test; use the factory ACR build for the final container image. The repository has no checked-in Container App deployment target, so no Azure infrastructure was created or modified here.
