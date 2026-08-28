@@ -20,6 +20,8 @@ npm run build
 
 `npm test`: 3 Playwright tests passed, including both claim tests. `cargo test`: passed. The Vite production output is 11.7 KB JS / 10.1 KB CSS uncompressed; the hero WebP is 134 KB. The project has no runtime third-party scripts, fonts, or analytics.
 
+A release-binary smoke check also returned `200` for `/health` and `/demo`, accepted a `POST /api/packets`, and returned `429` after 40 rapid API requests. Docker itself is not installed in this worker, so the Docker command could not be executed here; the multi-stage build is included at the repository root.
+
 ## Quality notes
 
 Manual visual check was made of the generated 1024px source: it is a clean, text-free cyan/coral/yellow/navy halftone print desk with no logos or people. The production hero WebP is 900×600 and 134 KB; the 1200×630 social crop is also 134 KB. The browser tests exercise keyboard review. A full Lighthouse and axe CLI run remains a factory deployment verification step.
