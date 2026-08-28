@@ -6,7 +6,7 @@ COPY frontend ./frontend
 COPY vite.config.ts tsconfig.json ./
 RUN npm run build
 
-FROM rust:1.88-alpine AS build
+FROM rust:1-alpine AS build
 ARG BUILD_SHA=dev
 WORKDIR /app
 RUN apk add --no-cache musl-dev

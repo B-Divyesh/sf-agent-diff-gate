@@ -12,5 +12,12 @@
     "where": "review packet toolbar",
     "test": "npm run test:browser -- --grep @claim:packet-export",
     "sandbox": "fresh browser context at /demo; trigger export and assert a JSON review-packet download"
+  },
+  {
+    "id": "team-packet-boundary",
+    "claim": "Real review packets are visible only to their signed-in team.",
+    "where": "real packet sign-in panel and README",
+    "test": "cargo test packet_reads_and_approvals_are_scoped_to_the_signed_in_team",
+    "sandbox": "two seeded team sessions; assert the other team receives 404 for read and approval, then assert the owning team can approve and creates an audit record"
   }
 ]
