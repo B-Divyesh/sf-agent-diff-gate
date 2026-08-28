@@ -27,12 +27,14 @@ cargo build --release
 
 The backend test suite includes exact regressions for unauthenticated packet rejection, cross-team read/approval rejection plus durable approval audit, forwarded-IP rate limiting with `Retry-After`, strict GitHub PR URL validation, and the unpinned Docker Rust stage. Browser tests cover both claims, sample isolation/reset, 390px layout, keyboard review, offline use after load, and serious/critical Axe violations.
 
-## GitHub setup and deployment
+## Deployment and GitHub setup
 
-The container still starts with only `PORT` and no GitHub configuration; `/demo` and `/health` work in that mode. To enable real teams, configure these deployment secrets/settings outside the repository: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_SLUG`, and `PUBLIC_BASE_URL`. The GitHub App must have only read access to pull requests and contents and be installed by the team.
+ACR build `chm6` built and pushed `sociobotregistry.azurecr.io/sf-agent-diff-gate:43b25f8`. Container App `sf-agent-diff-gate` was updated to that image as revision `sf-agent-diff-gate--0000001`. Live `/health` reports `{"status":"ok","build":"43b25f8"}`. Live `/demo` passed `verify-url.sh`: 711 ms load, zero console errors, title/lang/main/one h1, and no image missing alternate text. Live checks also confirmed immutable WebP cache headers, real HTTP 404, unauthenticated API `401`, and 100 concurrent packet requests from one client gave 90 x `401` and 10 x `429`.
 
-No container deployment target is checked into this repository and no local Docker daemon is available in this worker. The repository is committed and ready for the factory’s configured container build; deployment requires the factory to provide the GitHub OAuth/App secrets and its deployment target.
+The container intentionally starts with only `PORT` and no GitHub configuration; `/demo` and `/health` work in that mode. To enable real teams, the factory must configure these deployment secrets/settings outside the repository: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_SLUG`, and `PUBLIC_BASE_URL`. The GitHub App must have only read access to pull requests and contents and be installed by the team.
+
+No local Docker daemon was available; the successful ACR build is the production-image verification.
 
 ## Known limits
 
-Team membership currently maps to the signed-in GitHub identity’s team namespace. A production organization/role-management flow needs the factory’s identity configuration before it can be added safely. No payment feature is offered.
+The deployed instance has no GitHub OAuth/App secrets, so the real sign-in/import action correctly reports that it is not configured instead of exposing packet data. Once the factory provisions those secrets, active GitHub organizations become the tenant boundary; users without an active organization receive a private workspace. A production role-management flow is the next extension. No payment feature is offered.
