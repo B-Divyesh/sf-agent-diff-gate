@@ -32,6 +32,7 @@ cargo +1.88.0 build --release
 - The release binary was run with `env -i` (no application configuration), listened on port 8080, returned `{"status":"ok","build":"dev"}` from `/health`, and served `/demo` with 200. A 41-request forwarded-IP smoke yielded 40 × 200 then 429 with `Retry-After: 1`.
 - `/opt/fleet/lib/verify-url.sh http://127.0.0.1:8080/demo` passed: 585ms local load, zero console errors, title/lang/main/one-h1 present, and zero images missing alt text. Desktop and 390px screenshots are in the ephemeral verifier output directory used for that run.
 - Local Lighthouse (mobile defaults, performance and accessibility categories) scored 100 performance and 100 accessibility against the production release server.
+- ACR run `chjw` completed the real multi-stage Docker build and push in 7m4s: `sociobotregistry.azurecr.io/sf-agent-diff-gate:65f7b63166c6` at digest `sha256:4e74273d94c1acf8c8d20d668d7b9ee8e1d62d02620760145823d833ba7d802f`.
 
 ## Run and deploy
 
@@ -48,4 +49,4 @@ The runtime needs only `PORT` (defaults to 8080); it generates its SQLite `/data
 
 ## Known deployment note
 
-This worker has no local Docker daemon. The committed Dockerfile was validated by the Rust 1.88 release build and regression test; use the factory ACR build for the final container image. The repository has no checked-in Container App deployment target, so no Azure infrastructure was created or modified here.
+This worker has no local Docker daemon. The factory ACR build above validates the actual Docker image. The repository has no checked-in Container App deployment target, and no `agent-diff-gate` Container App exists in the configured factory subscription, so no Azure infrastructure was created or modified here. The pushed image is ready for the factory deployment target.
