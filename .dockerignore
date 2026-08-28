@@ -1,0 +1,7 @@
+.git
+node_modules
+target
+test-results
+playwright-report
+dist
+diff-gate-smoke.db
