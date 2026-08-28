@@ -1,61 +1,44 @@
-# Diff Gate repair handoff
+# Independent QA handoff — FAIL
 
-## Repaired findings
+## Candidate and decision
 
-- Reproduced the verifier's exact approval failure first: the prior route accepted an owner packet with `missing` evidence. The replacement regression proves it now returns `400`, rejects a different same-team reviewer with `403`, persists a saved evidence update and audit entry, then permits only the named owner to approve.
-- Replaced GitHub OAuth with Sociobot Entra External ID authorization-code configuration at `/auth/entra`. ID tokens are verified against OIDC metadata, issuer, audience, and JWKS before a session is created.
-- Replaced the deployment-wide GitHub installation id with `GITHUB_TEAM_INSTALLATIONS`, keyed by the exact Entra team claim (`entra:<team-id>`). An unmapped team cannot obtain an installation token. Changed-file import now paginates all GitHub pages and refuses an unsafe import above 10,000 files.
-- Added durable real-packet evidence updates, immutable approvals, a visible sign-out control, saved-packet reopening, correct demo/back routing, durable demo approval display, dark-theme contrast fixes, 44px navigation/footer targets, and removed the dead Param Factory link.
-- Registered the reliance-worthy approval and Entra/team-installation claims in `.factory/claims.json` with exact Rust regression commands.
+- Candidate: `9fb9afa9361a2ff234885b49e35bb3874550156f`
+- Live: <https://agent-diff-gate.sociobot.in>
+- Verified: 2026-08-28
+- Decision: **FAIL — do not release**
 
-## Verification
+The exact candidate is deployed and the sample works well, but the real product is unavailable. Live `/api/auth/status` reports `entra_sign_in_configured:false` and `github_app_configured:false`; `/auth/entra` returns 503. Teams therefore cannot sign in or perform the brief's real GitHub review workflow.
 
-Run from a clean checkout:
+## Release blockers
 
-```sh
-npm ci
-npx tsc --noEmit
-npm test
-npm run build
-cargo fmt --check
-cargo test
-cargo clippy -- -D warnings
-cargo build --release
-```
+1. Configure and exercise the live Sociobot Entra External ID and team-bound GitHub App workflow. Restrict `ENTRA_AUTHORITY` to `sociobotcustomers.ciamlogin.com`.
+2. Fix three serious dark-mode contrast failures on the landing page (2.06:1 primary action; 1.1:1 boundary heading/body).
+3. Add configurable retention and deletion for packet/session/audit data, and document the policy.
+4. Fix the false privacy statement that demo state is discarded whenever demo mode is left. Ordinary navigation retains and restores `demo:diff-gate`.
+5. Register and test all public import/privacy claims, especially reading every changed path with the team-bound GitHub App.
 
-Completed locally on 2026-08-28:
+Additional findings: simultaneous approvals return `200` plus a misleading `404`; audit records have no user-facing history/export; the researched paid tier is absent; unhashed images are cached immutable for a year; the sitemap uses relative URLs; and `.factory/copy-audit.md` is stale.
 
-- `npm ci`: 0 vulnerabilities reported.
-- `npx tsc --noEmit`: pass.
-- `npm test`: 11/11 browser tests, including dark Axe, demo history, persistent sample approval, and 390px touch targets.
-- `npm run build`: pass; `dist/` produced (5.67 KB gzip JS, 3.31 KB gzip CSS).
-- `cargo fmt --check`, `cargo test` (7/7), `cargo clippy -- -D warnings`, and `cargo build --release`: pass.
-- Release binary smoke: `/health` returned the supplied build id and an unauthenticated approval returned `401` with the Sociobot sign-in message.
+## Verification summary
 
-## Deployment configuration
+Passed:
 
-The container remains a Rust/Axum service on `PORT=8080`; the Docker image starts without credentials for the local demo and health endpoint. The real workflow requires these deployment secrets/configuration values, which are intentionally not in the repository:
+- Every command in `.factory/claims.json` after `npm ci`.
+- Cold first-read and one-click sample demo.
+- `npx tsc --noEmit`.
+- `npm test` (11/11 browser tests).
+- `npm run build` (`dist/` produced).
+- `cargo fmt --check`.
+- `cargo test` (7/7).
+- `cargo clippy -- -D warnings`.
+- `cargo build --release`.
+- Release-binary startup with only `PORT`, health/build identity, input boundaries, evidence/owner enforcement, SQLite restart persistence, and a 100-request concurrent health smoke.
+- Live candidate SHA and asset-hash parity.
+- Live rate limit: 40 requests/client/second, then 429 with `Retry-After: 1`; health exempt.
+- Same-origin demo request log, normal desktop/390px layout, keyboard/focus, reduced motion, routes, security headers, and zero console/page errors.
+- Mobile Lighthouse: 98 performance / 100 accessibility; LCP 1.7s, TBT 150ms, CLS 0, 162 KiB transfer.
+- Factory `verify-url.sh` on `/` and `/demo`.
 
-```text
-ENTRA_AUTHORITY=https://sociobotcustomers.ciamlogin.com/<tenant>
-ENTRA_CLIENT_ID=<Entra application id>
-ENTRA_CLIENT_SECRET=<Entra application secret>
-ENTRA_TEAM_CLAIM=extension_DiffGateTeam
-GITHUB_APP_ID=<GitHub App id>
-GITHUB_APP_PRIVATE_KEY=<GitHub App PEM>
-GITHUB_TEAM_INSTALLATIONS={"entra:<team-id>":"<installation-id>"}
-GITHUB_APP_SLUG=<GitHub App slug>
-PUBLIC_BASE_URL=https://agent-diff-gate.sociobot.in
-```
+Docker was not available in the verifier image, so the Dockerfile could not be rebuilt. Native production builds passed, the Dockerfile contract is structurally correct, and live build identity is the candidate SHA.
 
-The Entra application must issue the selected team claim. The GitHub App needs only pull-request and contents read access and must be installed by each mapped team. No global installation fallback exists.
-
-## Deployment evidence
-
-- ACR build `chnx` produced `sociobotregistry.azurecr.io/sf-agent-diff-gate:0d0c4163186c` (digest `sha256:8623bece7abb69547772389af897fe231cfdc021d921ef43fbc4bf7302129f6e`).
-- Container App `sf-agent-diff-gate` is deployed as revision `sf-agent-diff-gate--0000003`, healthy and running with that image.
-- Live <https://agent-diff-gate.sociobot.in/health> returned `{"status":"ok","build":"0d0c4163186c8f78a19270a51cc13d3313596b4c"}`. Live auth status exposes `entra_sign_in_configured:false` and `/auth/entra` returns the expected configuration-only `503` until factory secrets are supplied.
-
-## Known external dependency
-
-This repair cannot make a production user sign in until the factory provisions the Entra and GitHub App secret values above. The live deployment should be rechecked with a real mapped team after those values are supplied; the sample demo is unaffected.
+Full evidence and reproduction details are in `.factory/verification-3.md`.
