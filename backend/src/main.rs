@@ -7,7 +7,9 @@ use axum::{
     Json, Router,
 };
 use chrono::{Duration as ChronoDuration, Utc};
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use jsonwebtoken::{
+    decode, decode_header, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation,
+};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePoolOptions, FromRow, SqlitePool};
@@ -35,6 +37,7 @@ struct AppState {
     db: SqlitePool,
     build: String,
     limits: Arc<Mutex<HashMap<String, Window>>>,
+    identity: EntraConfig,
     github: GithubConfig,
     http: Client,
 }
@@ -44,34 +47,62 @@ struct Window {
 }
 #[derive(Clone, Default)]
 struct GithubConfig {
-    client_id: Option<String>,
-    client_secret: Option<String>,
     app_id: Option<String>,
     private_key: Option<String>,
-    installation_id: Option<String>,
     app_slug: Option<String>,
+    installations: HashMap<String, String>,
+}
+#[derive(Clone, Default)]
+struct EntraConfig {
+    authority: Option<String>,
+    client_id: Option<String>,
+    client_secret: Option<String>,
     public_base: String,
+    team_claim: String,
 }
 impl GithubConfig {
     fn from_env() -> Self {
         Self {
-            client_id: env::var("GITHUB_OAUTH_CLIENT_ID").ok(),
-            client_secret: env::var("GITHUB_OAUTH_CLIENT_SECRET").ok(),
             app_id: env::var("GITHUB_APP_ID").ok(),
             private_key: env::var("GITHUB_APP_PRIVATE_KEY")
                 .ok()
                 .map(|v| v.replace("\\n", "\n")),
-            installation_id: env::var("GITHUB_APP_INSTALLATION_ID").ok(),
             app_slug: env::var("GITHUB_APP_SLUG").ok(),
-            public_base: env::var("PUBLIC_BASE_URL")
-                .unwrap_or_else(|_| "http://localhost:8080".into()),
+            installations: env::var("GITHUB_TEAM_INSTALLATIONS")
+                .ok()
+                .and_then(|raw| serde_json::from_str(&raw).ok())
+                .unwrap_or_default(),
         }
     }
-    fn oauth_ready(&self) -> bool {
-        self.client_id.is_some() && self.client_secret.is_some()
-    }
     fn app_ready(&self) -> bool {
-        self.app_id.is_some() && self.private_key.is_some() && self.installation_id.is_some()
+        self.app_id.is_some() && self.private_key.is_some() && !self.installations.is_empty()
+    }
+    fn installation_for(&self, team_id: &str) -> Option<String> {
+        self.installations.get(team_id).cloned()
+    }
+}
+impl EntraConfig {
+    fn from_env() -> Self {
+        Self {
+            authority: env::var("ENTRA_AUTHORITY")
+                .ok()
+                .map(|value| value.trim_end_matches('/').to_string()),
+            client_id: env::var("ENTRA_CLIENT_ID").ok(),
+            client_secret: env::var("ENTRA_CLIENT_SECRET").ok(),
+            public_base: env::var("PUBLIC_BASE_URL")
+                .unwrap_or_else(|_| "http://localhost:8080".into()),
+            team_claim: env::var("ENTRA_TEAM_CLAIM")
+                .unwrap_or_else(|_| "extension_DiffGateTeam".into()),
+        }
+    }
+    fn ready(&self) -> bool {
+        self.authority.is_some() && self.client_id.is_some() && self.client_secret.is_some()
+    }
+    fn callback_url(&self) -> String {
+        format!(
+            "{}/auth/entra/callback",
+            self.public_base.trim_end_matches('/')
+        )
     }
 }
 #[derive(Serialize)]
@@ -82,7 +113,7 @@ struct Health {
 #[derive(Serialize)]
 struct AuthStatus {
     authenticated: bool,
-    github_sign_in_configured: bool,
+    entra_sign_in_configured: bool,
     github_app_configured: bool,
     install_url: Option<String>,
     user: Option<String>,
@@ -112,21 +143,12 @@ struct Approval {
     note: Option<String>,
 }
 #[derive(Deserialize)]
+struct EvidenceUpdate {
+    data: serde_json::Value,
+}
+#[derive(Deserialize)]
 struct ImportRequest {
     pr_url: String,
-}
-#[derive(Deserialize)]
-struct GithubUser {
-    login: String,
-}
-#[derive(Deserialize)]
-struct GithubMembership {
-    state: String,
-    organization: GithubOrganization,
-}
-#[derive(Deserialize)]
-struct GithubOrganization {
-    login: String,
 }
 #[derive(Deserialize)]
 struct GithubPull {
@@ -142,6 +164,20 @@ struct GithubPullUser {
 struct GithubFile {
     filename: String,
 }
+#[derive(Deserialize)]
+struct EntraMetadata {
+    issuer: String,
+    jwks_uri: String,
+}
+#[derive(Deserialize)]
+struct EntraClaims {
+    sub: String,
+    oid: Option<String>,
+    preferred_username: Option<String>,
+    name: Option<String>,
+    #[serde(flatten)]
+    extra: HashMap<String, serde_json::Value>,
+}
 #[derive(Serialize)]
 struct GithubJwtClaims {
     iss: String,
@@ -153,6 +189,58 @@ struct Session {
     team_id: String,
     login: String,
     team_name: String,
+}
+
+async fn validate_entra_token(state: &AppState, id_token: &str) -> Result<EntraClaims, AppError> {
+    let authority = state.identity.authority.as_deref().unwrap_or_default();
+    let metadata = state
+        .http
+        .get(format!("{authority}/v2.0/.well-known/openid-configuration"))
+        .send()
+        .await
+        .map_err(|_| {
+            AppError::service_unavailable("Could not validate the Sociobot identity token.")
+        })?
+        .error_for_status()
+        .map_err(|_| {
+            AppError::service_unavailable("Could not validate the Sociobot identity token.")
+        })?
+        .json::<EntraMetadata>()
+        .await
+        .map_err(|_| AppError::service_unavailable("Sociobot identity metadata was invalid."))?;
+    let header = decode_header(id_token)
+        .map_err(|_| AppError::unauthorized("Sociobot returned an invalid identity token."))?;
+    let kid = header
+        .kid
+        .ok_or_else(|| AppError::unauthorized("Sociobot identity token has no signing key."))?;
+    let keys = state
+        .http
+        .get(&metadata.jwks_uri)
+        .send()
+        .await
+        .map_err(|_| {
+            AppError::service_unavailable("Could not validate the Sociobot identity token.")
+        })?
+        .error_for_status()
+        .map_err(|_| {
+            AppError::service_unavailable("Could not validate the Sociobot identity token.")
+        })?
+        .json::<jsonwebtoken::jwk::JwkSet>()
+        .await
+        .map_err(|_| AppError::service_unavailable("Sociobot signing keys were invalid."))?;
+    let jwk = keys
+        .keys
+        .into_iter()
+        .find(|key| key.common.key_id.as_deref() == Some(&kid))
+        .ok_or_else(|| AppError::unauthorized("Sociobot signing key was not recognized."))?;
+    let key = DecodingKey::from_jwk(&jwk)
+        .map_err(|_| AppError::unauthorized("Sociobot signing key was invalid."))?;
+    let mut validation = Validation::new(header.alg);
+    validation.set_audience(&[state.identity.client_id.as_deref().unwrap_or_default()]);
+    validation.set_issuer(&[metadata.issuer]);
+    decode::<EntraClaims>(id_token, &key, &validation)
+        .map(|data| data.claims)
+        .map_err(|_| AppError::unauthorized("Sociobot identity token validation failed."))
 }
 
 async fn health(State(state): State<AppState>) -> Json<Health> {
@@ -174,16 +262,20 @@ fn cookie_value(headers: &HeaderMap, name: &str) -> Option<String> {
 }
 async fn session(state: &AppState, headers: &HeaderMap) -> Result<Session, AppError> {
     let token = cookie_value(headers, "diff_gate_session").ok_or_else(|| {
-        AppError::unauthorized("Sign in with GitHub before opening team packets.")
+        AppError::unauthorized("Sign in with Sociobot before opening team packets.")
     })?;
-    sqlx::query_as::<_, Session>("SELECT s.team_id, s.login, t.name AS team_name FROM sessions s JOIN teams t ON t.id=s.team_id WHERE s.token=? AND s.expires_at > ?").bind(token).bind(Utc::now().to_rfc3339()).fetch_optional(&state.db).await?.ok_or_else(|| AppError::unauthorized("Your session ended. Sign in with GitHub again."))
+    sqlx::query_as::<_, Session>("SELECT s.team_id, s.login, t.name AS team_name FROM sessions s JOIN teams t ON t.id=s.team_id WHERE s.token=? AND s.expires_at > ?").bind(token).bind(Utc::now().to_rfc3339()).fetch_optional(&state.db).await?.ok_or_else(|| AppError::unauthorized("Your session ended. Sign in with Sociobot again."))
 }
 async fn auth_status(State(state): State<AppState>, headers: HeaderMap) -> Json<AuthStatus> {
     let active = session(&state, &headers).await.ok();
     Json(AuthStatus {
         authenticated: active.is_some(),
-        github_sign_in_configured: state.github.oauth_ready(),
-        github_app_configured: state.github.app_ready(),
+        entra_sign_in_configured: state.identity.ready(),
+        github_app_configured: active
+            .as_ref()
+            .and_then(|session| state.github.installation_for(&session.team_id))
+            .is_some()
+            && state.github.app_ready(),
         install_url: state
             .github
             .app_slug
@@ -193,10 +285,10 @@ async fn auth_status(State(state): State<AppState>, headers: HeaderMap) -> Json<
         team: active.map(|s| s.team_name),
     })
 }
-async fn github_login(State(state): State<AppState>) -> Result<Redirect, AppError> {
-    if !state.github.oauth_ready() {
+async fn entra_login(State(state): State<AppState>) -> Result<Redirect, AppError> {
+    if !state.identity.ready() {
         return Err(AppError::service_unavailable(
-            "GitHub sign-in is not configured on this deployment.",
+            "Sociobot Entra sign-in is not configured on this deployment.",
         ));
     }
     let nonce = Uuid::new_v4().to_string();
@@ -205,19 +297,20 @@ async fn github_login(State(state): State<AppState>) -> Result<Redirect, AppErro
         .bind(Utc::now().to_rfc3339())
         .execute(&state.db)
         .await?;
-    let callback = format!(
-        "{}/auth/github/callback",
-        state.github.public_base.trim_end_matches('/')
-    );
-    let mut url = Url::parse("https://github.com/login/oauth/authorize").expect("GitHub OAuth URL");
+    let authority = state.identity.authority.as_deref().unwrap_or_default();
+    let mut url = Url::parse(&format!("{authority}/oauth2/v2.0/authorize"))
+        .map_err(|_| AppError::service_unavailable("The Entra authority is invalid."))?;
     url.query_pairs_mut()
         .append_pair(
             "client_id",
-            state.github.client_id.as_deref().unwrap_or_default(),
+            state.identity.client_id.as_deref().unwrap_or_default(),
         )
-        .append_pair("redirect_uri", &callback)
-        .append_pair("scope", "read:user read:org")
-        .append_pair("state", &nonce);
+        .append_pair("redirect_uri", &state.identity.callback_url())
+        .append_pair("response_type", "code")
+        .append_pair("response_mode", "query")
+        .append_pair("scope", "openid profile email")
+        .append_pair("state", &nonce)
+        .append_pair("nonce", &nonce);
     Ok(Redirect::temporary(url.as_str()))
 }
 #[derive(Deserialize)]
@@ -225,13 +318,13 @@ struct OAuthCallback {
     code: String,
     state: String,
 }
-async fn github_callback(
+async fn entra_callback(
     State(state): State<AppState>,
     axum::extract::Query(query): axum::extract::Query<OAuthCallback>,
 ) -> Result<Response, AppError> {
-    if !state.github.oauth_ready() {
+    if !state.identity.ready() {
         return Err(AppError::service_unavailable(
-            "GitHub sign-in is not configured on this deployment.",
+            "Sociobot Entra sign-in is not configured on this deployment.",
         ));
     }
     if sqlx::query("DELETE FROM oauth_states WHERE state=?")
@@ -242,52 +335,55 @@ async fn github_callback(
         != 1
     {
         return Err(AppError::bad(
-            "That GitHub sign-in link expired. Start again.",
+            "That Sociobot sign-in link expired. Start again.",
         ));
     }
-    let token = state.http.post("https://github.com/login/oauth/access_token").header("accept", "application/json").json(&serde_json::json!({"client_id":state.github.client_id,"client_secret":state.github.client_secret,"code":query.code})).send().await.map_err(|_| AppError::service_unavailable("GitHub could not complete sign-in. Try again."))?.error_for_status().map_err(|_| AppError::service_unavailable("GitHub could not complete sign-in. Try again."))?.json::<serde_json::Value>().await.map_err(|_| AppError::service_unavailable("GitHub returned an invalid sign-in response."))?;
-    let access_token = token
-        .get("access_token")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| AppError::service_unavailable("GitHub did not return an access token."))?;
-    let user = state
+    let authority = state.identity.authority.as_deref().unwrap_or_default();
+    let token = state
         .http
-        .get("https://api.github.com/user")
-        .header("user-agent", "diff-gate")
-        .bearer_auth(access_token)
+        .post(format!("{authority}/oauth2/v2.0/token"))
+        .form(&[
+            (
+                "client_id",
+                state.identity.client_id.as_deref().unwrap_or_default(),
+            ),
+            (
+                "client_secret",
+                state.identity.client_secret.as_deref().unwrap_or_default(),
+            ),
+            ("code", &query.code),
+            ("redirect_uri", &state.identity.callback_url()),
+            ("grant_type", "authorization_code"),
+        ])
         .send()
         .await
-        .map_err(|_| AppError::service_unavailable("Could not read your GitHub identity."))?
+        .map_err(|_| {
+            AppError::service_unavailable("Sociobot could not complete sign-in. Try again.")
+        })?
         .error_for_status()
-        .map_err(|_| AppError::service_unavailable("Could not read your GitHub identity."))?
-        .json::<GithubUser>()
+        .map_err(|_| {
+            AppError::service_unavailable("Sociobot could not complete sign-in. Try again.")
+        })?
+        .json::<serde_json::Value>()
         .await
-        .map_err(|_| AppError::service_unavailable("GitHub returned an invalid user profile."))?;
-    let memberships = match state
-        .http
-        .get("https://api.github.com/user/memberships/orgs?state=active")
-        .header("user-agent", "diff-gate")
-        .bearer_auth(access_token)
-        .send()
-        .await
-    {
-        Ok(response) => match response.error_for_status() {
-            Ok(response) => response.json::<Vec<GithubMembership>>().await.ok(),
-            Err(_) => None,
-        },
-        Err(_) => None,
-    };
-    let organization = memberships
-        .as_deref()
-        .and_then(|memberships| {
-            memberships
-                .iter()
-                .find(|membership| membership.state == "active")
-        })
-        .map(|membership| membership.organization.login.clone());
-    let team_key = organization.clone().unwrap_or_else(|| user.login.clone());
-    let team_id = format!("github:{}", team_key.to_lowercase());
-    let team_name = organization.unwrap_or_else(|| format!("{}'s private workspace", user.login));
+        .map_err(|_| {
+            AppError::service_unavailable("Sociobot returned an invalid sign-in response.")
+        })?;
+    let id_token = token
+        .get("id_token")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| {
+            AppError::service_unavailable("Sociobot did not return an identity token.")
+        })?;
+    let claims = validate_entra_token(&state, id_token).await?;
+    let team_value = claims.extra.get(&state.identity.team_claim).and_then(|value| match value { serde_json::Value::String(value) => Some(value.clone()), serde_json::Value::Array(values) => values.first().and_then(|v| v.as_str()).map(str::to_string), _ => None }).filter(|value| !value.trim().is_empty()).ok_or_else(|| AppError::forbidden("Your Sociobot account has no Diff Gate team claim. Ask a team administrator to assign one."))?;
+    let team_id = format!("entra:{team_value}");
+    let login = claims
+        .preferred_username
+        .or(claims.name)
+        .or(claims.oid)
+        .unwrap_or(claims.sub);
+    let team_name = format!("Sociobot team {team_value}");
     sqlx::query("INSERT OR IGNORE INTO teams (id,name,created_at) VALUES (?,?,?)")
         .bind(&team_id)
         .bind(team_name)
@@ -298,7 +394,7 @@ async fn github_callback(
     sqlx::query("INSERT INTO sessions (token,team_id,login,expires_at) VALUES (?,?,?,?)")
         .bind(&session_token)
         .bind(&team_id)
-        .bind(&user.login)
+        .bind(&login)
         .bind((Utc::now() + ChronoDuration::days(SESSION_DAYS)).to_rfc3339())
         .execute(&state.db)
         .await?;
@@ -374,6 +470,65 @@ async fn get_packet(
     let who = session(&state, &headers).await?;
     sqlx::query_as("SELECT id,title,owner,status,data,created_at,approved_by,approved_at,source_url FROM packets WHERE id=? AND team_id=?").bind(id).bind(who.team_id).fetch_optional(&state.db).await?.map(Json).ok_or_else(|| AppError::not_found("That review packet was not found in this team."))
 }
+fn evidence_is_complete(data: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(data)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("checks")
+                .and_then(|checks| checks.as_array())
+                .cloned()
+        })
+        .map(|checks| {
+            !checks.is_empty()
+                && checks.iter().all(|check| {
+                    matches!(
+                        check.get("state").and_then(|value| value.as_str()),
+                        Some("ready") | Some("done")
+                    )
+                })
+        })
+        .unwrap_or(false)
+}
+async fn update_packet_evidence(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    Json(input): Json<EvidenceUpdate>,
+) -> Result<Json<Packet>, AppError> {
+    let who = session(&state, &headers).await?;
+    let packet = sqlx::query_as::<_, Packet>("SELECT id,title,owner,status,data,created_at,approved_by,approved_at,source_url FROM packets WHERE id=? AND team_id=?").bind(&id).bind(&who.team_id).fetch_optional(&state.db).await?.ok_or_else(|| AppError::not_found("That review packet was not found in this team."))?;
+    if packet.status == "approved" {
+        return Err(AppError::conflict(
+            "Approved packets are immutable. Create a new review packet for a changed decision.",
+        ));
+    }
+    if !input
+        .data
+        .get("checks")
+        .is_some_and(|checks| checks.as_array().is_some())
+    {
+        return Err(AppError::bad(
+            "Review evidence must include the packet checks.",
+        ));
+    }
+    let data = input.data.to_string();
+    sqlx::query("UPDATE packets SET data=? WHERE id=? AND team_id=?")
+        .bind(data)
+        .bind(&id)
+        .bind(&who.team_id)
+        .execute(&state.db)
+        .await?;
+    audit(
+        &state.db,
+        &id,
+        &who.login,
+        "evidence_updated",
+        "Review evidence was saved.",
+    )
+    .await?;
+    get_packet(State(state), headers, Path(id)).await
+}
 async fn approve_packet(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -381,8 +536,24 @@ async fn approve_packet(
     Json(input): Json<Approval>,
 ) -> Result<Json<Packet>, AppError> {
     let who = session(&state, &headers).await?;
+    let packet = sqlx::query_as::<_, Packet>("SELECT id,title,owner,status,data,created_at,approved_by,approved_at,source_url FROM packets WHERE id=? AND team_id=?").bind(&id).bind(&who.team_id).fetch_optional(&state.db).await?.ok_or_else(|| AppError::not_found("That review packet was not found in this team."))?;
+    if packet.owner != who.login {
+        return Err(AppError::forbidden(
+            "Only the named owner can approve this review packet.",
+        ));
+    }
+    if packet.status == "approved" {
+        return Err(AppError::conflict(
+            "This packet is already approved and its approval is immutable.",
+        ));
+    }
+    if !evidence_is_complete(&packet.data) {
+        return Err(AppError::bad(
+            "Resolve and save every review check before approval.",
+        ));
+    }
     let updated = sqlx::query(
-        "UPDATE packets SET status='approved',approved_by=?,approved_at=? WHERE id=? AND team_id=?",
+        "UPDATE packets SET status='approved',approved_by=?,approved_at=? WHERE id=? AND team_id=? AND status!='approved'",
     )
     .bind(&who.login)
     .bind(Utc::now().to_rfc3339())
@@ -435,12 +606,13 @@ fn parse_pr_url(raw: &str) -> Result<(String, String, u64), AppError> {
         .map_err(|_| AppError::bad("The pull request number must be a number."))?;
     Ok((parts[0].to_string(), parts[1].to_string(), number))
 }
-async fn installation_token(state: &AppState) -> Result<String, AppError> {
+async fn installation_token(state: &AppState, team_id: &str) -> Result<String, AppError> {
     if !state.github.app_ready() {
         return Err(AppError::service_unavailable(
             "Connect the Diff Gate GitHub App before importing a pull request.",
         ));
     }
+    let installation_id = state.github.installation_for(team_id).ok_or_else(|| AppError::forbidden("No GitHub App installation is bound to this Sociobot team. Ask a team administrator to install and bind it."))?;
     let now = Utc::now().timestamp() as usize;
     let jwt = encode(
         &Header::new(Algorithm::RS256),
@@ -462,7 +634,7 @@ async fn installation_token(state: &AppState) -> Result<String, AppError> {
     .map_err(|_| AppError::service_unavailable("Could not sign the GitHub App request."))?;
     let endpoint = format!(
         "https://api.github.com/app/installations/{}/access_tokens",
-        state.github.installation_id.as_deref().unwrap_or_default()
+        installation_id
     );
     let value = state
         .http
@@ -499,7 +671,7 @@ async fn import_github_pr(
 ) -> Result<(StatusCode, Json<Packet>), AppError> {
     let who = session(&state, &headers).await?;
     let (owner, repo, number) = parse_pr_url(&input.pr_url)?;
-    let token = installation_token(&state).await?;
+    let token = installation_token(&state, &who.team_id).await?;
     let base = format!("https://api.github.com/repos/{owner}/{repo}/pulls/{number}");
     let pull = state
         .http
@@ -517,21 +689,7 @@ async fn import_github_pr(
         .json::<GithubPull>()
         .await
         .map_err(|_| AppError::service_unavailable("GitHub returned an invalid pull request."))?;
-    let files = state
-        .http
-        .get(format!("{base}/files?per_page=100"))
-        .header("user-agent", "diff-gate")
-        .header("accept", "application/vnd.github+json")
-        .bearer_auth(&token)
-        .send()
-        .await
-        .map_err(|_| AppError::service_unavailable("GitHub could not load changed files."))?
-        .error_for_status()
-        .map_err(|_| AppError::service_unavailable("GitHub could not load changed files."))?
-        .json::<Vec<GithubFile>>()
-        .await
-        .map_err(|_| AppError::service_unavailable("GitHub returned invalid changed files."))?;
-    let changed: Vec<String> = files.iter().map(|f| f.filename.clone()).collect();
+    let changed = github_changed_files(&state, &base, &token).await?;
     let has_migration = changed
         .iter()
         .any(|f| f.contains("migration") || f.starts_with("db/"));
@@ -561,6 +719,42 @@ async fn import_github_pr(
     )
     .await?;
     Ok((StatusCode::CREATED, Json(packet)))
+}
+
+async fn github_changed_files(
+    state: &AppState,
+    base: &str,
+    token: &str,
+) -> Result<Vec<String>, AppError> {
+    let mut page = 1;
+    let mut changed = Vec::new();
+    loop {
+        let response = state
+            .http
+            .get(format!("{base}/files?per_page=100&page={page}"))
+            .header("user-agent", "diff-gate")
+            .header("accept", "application/vnd.github+json")
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(|_| AppError::service_unavailable("GitHub could not load changed files."))?
+            .error_for_status()
+            .map_err(|_| AppError::service_unavailable("GitHub could not load changed files."))?;
+        let files = response
+            .json::<Vec<GithubFile>>()
+            .await
+            .map_err(|_| AppError::service_unavailable("GitHub returned invalid changed files."))?;
+        let count = files.len();
+        changed.extend(files.into_iter().map(|file| file.filename));
+        if count < 100 {
+            break;
+        }
+        page += 1;
+        if page > 100 {
+            return Err(AppError::bad("This pull request has more than 10,000 changed files and cannot be imported safely."));
+        }
+    }
+    Ok(changed)
 }
 
 fn client_ip(headers: &HeaderMap) -> String {
@@ -649,6 +843,18 @@ impl AppError {
             message: message.into(),
         }
     }
+    fn forbidden(message: &str) -> Self {
+        Self {
+            status: StatusCode::FORBIDDEN,
+            message: message.into(),
+        }
+    }
+    fn conflict(message: &str) -> Self {
+        Self {
+            status: StatusCode::CONFLICT,
+            message: message.into(),
+        }
+    }
 }
 impl From<sqlx::Error> for AppError {
     fn from(_: sqlx::Error) -> Self {
@@ -704,12 +910,15 @@ fn static_routes() -> Router<AppState> {
 fn app(state: AppState) -> Router {
     let protected = Router::new()
         .route("/api/packets", get(list_packets).post(create_packet))
-        .route("/api/packets/:id", get(get_packet))
+        .route(
+            "/api/packets/:id",
+            get(get_packet).put(update_packet_evidence),
+        )
         .route("/api/packets/:id/approve", post(approve_packet))
         .route("/api/github/import", post(import_github_pr))
         .route("/api/auth/status", get(auth_status))
-        .route("/auth/github", get(github_login))
-        .route("/auth/github/callback", get(github_callback))
+        .route("/auth/entra", get(entra_login))
+        .route("/auth/entra/callback", get(entra_callback))
         .route("/api/auth/signout", post(sign_out))
         .merge(static_routes())
         .layer(middleware::from_fn(cache_headers))
@@ -765,10 +974,11 @@ async fn main() -> anyhow::Result<()> {
     if !std::path::Path::new("/data").exists() {
         std::fs::create_dir_all("/data").ok();
     }
+    let identity = EntraConfig::from_env();
     let github = GithubConfig::from_env();
     info!(
         database_config,
-        github_oauth = github.oauth_ready(),
+        entra_identity = identity.ready(),
         github_app = github.app_ready(),
         "Diff Gate starting; only optional GitHub configuration was supplied"
     );
@@ -781,6 +991,7 @@ async fn main() -> anyhow::Result<()> {
         db,
         build,
         limits: Arc::new(Mutex::new(HashMap::new())),
+        identity,
         github,
         http: Client::new(),
     };
@@ -811,6 +1022,7 @@ mod tests {
             db: db.clone(),
             build: "test-sha".into(),
             limits: Arc::new(Mutex::new(HashMap::new())),
+            identity: EntraConfig::default(),
             github: GithubConfig::default(),
             http: Client::new(),
         };
@@ -860,7 +1072,7 @@ mod tests {
             .execute(&db)
             .await
             .unwrap();
-        sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at) VALUES ('packet-b','b','Private change','bea','needs review','{}',?)")
+        sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at) VALUES ('packet-b','b','Private change','bea','needs review','{\"checks\":[{\"state\":\"done\"}]}',?)")
             .bind(&now)
             .execute(&db)
             .await
@@ -901,6 +1113,103 @@ mod tests {
         assert_eq!(approved.status(), StatusCode::OK);
         let audit_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM packet_audit WHERE packet_id='packet-b' AND actor='bea' AND action='approved'").fetch_one(&db).await.unwrap();
         assert_eq!(audit_count, 1);
+    }
+    #[tokio::test]
+    async fn approval_rejects_missing_evidence_and_wrong_owner_and_persists_saved_evidence() {
+        let (app, db) = test_app().await;
+        let now = (Utc::now() + ChronoDuration::days(1)).to_rfc3339();
+        sqlx::query("INSERT INTO teams (id,name,created_at) VALUES ('team','Team',?)")
+            .bind(&now)
+            .execute(&db)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO sessions (token,team_id,login,expires_at) VALUES ('owner-token','team','owner',?),('reviewer-token','team','reviewer',?)")
+            .bind(&now).bind(&now).execute(&db).await.unwrap();
+        sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at) VALUES ('packet','team','Protected change','owner','needs review','{\"checks\":[{\"state\":\"missing\"}]}',?)")
+            .bind(&now).execute(&db).await.unwrap();
+        let missing = app
+            .clone()
+            .oneshot(
+                Request::post("/api/packets/packet/approve")
+                    .header("cookie", "diff_gate_session=owner-token")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(missing.status(), StatusCode::BAD_REQUEST);
+        let evidence = app
+            .clone()
+            .oneshot(
+                Request::put("/api/packets/packet")
+                    .header("cookie", "diff_gate_session=owner-token")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        "{\"data\":{\"checks\":[{\"state\":\"done\"}]}}",
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(evidence.status(), StatusCode::OK);
+        let wrong_owner = app
+            .clone()
+            .oneshot(
+                Request::post("/api/packets/packet/approve")
+                    .header("cookie", "diff_gate_session=reviewer-token")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(wrong_owner.status(), StatusCode::FORBIDDEN);
+        let approved = app
+            .oneshot(
+                Request::post("/api/packets/packet/approve")
+                    .header("cookie", "diff_gate_session=owner-token")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(approved.status(), StatusCode::OK);
+        let state: String = sqlx::query_scalar("SELECT data FROM packets WHERE id='packet'")
+            .fetch_one(&db)
+            .await
+            .unwrap();
+        assert!(state.contains("done"));
+        let audit_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM packet_audit WHERE packet_id='packet' AND action='evidence_updated'").fetch_one(&db).await.unwrap();
+        assert_eq!(audit_count, 1);
+    }
+    #[test]
+    fn entra_and_github_installations_are_configured_per_team() {
+        let identity = EntraConfig {
+            authority: Some("https://sociobotcustomers.ciamlogin.com/tenant".into()),
+            client_id: Some("client-id".into()),
+            client_secret: Some("secret".into()),
+            public_base: "https://agent-diff-gate.sociobot.in".into(),
+            team_claim: "extension_DiffGateTeam".into(),
+        };
+        assert!(identity.ready());
+        assert_eq!(
+            identity.callback_url(),
+            "https://agent-diff-gate.sociobot.in/auth/entra/callback"
+        );
+        let github = GithubConfig {
+            app_id: Some("app".into()),
+            private_key: Some("key".into()),
+            app_slug: None,
+            installations: HashMap::from([(String::from("entra:team-a"), String::from("101"))]),
+        };
+        assert_eq!(
+            github.installation_for("entra:team-a").as_deref(),
+            Some("101")
+        );
+        assert_eq!(github.installation_for("entra:team-b"), None);
+        assert!(github.app_ready());
     }
     #[tokio::test]
     async fn rate_limit_uses_the_first_forwarded_ip_and_returns_retry_after() {

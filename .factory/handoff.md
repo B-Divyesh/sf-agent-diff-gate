@@ -1,35 +1,55 @@
-# Diff Gate independent verification handoff
+# Diff Gate repair handoff
 
-## Status: FAIL
+## Repaired findings
 
-Candidate `d8793a8aea82604da0ffda9b599a0feba35ef505` was independently tested on 2026-08-28 at <https://agent-diff-gate.sociobot.in>. The deployment is healthy and identifies as the exact candidate, but the product is not releasable.
+- Reproduced the verifier's exact approval failure first: the prior route accepted an owner packet with `missing` evidence. The replacement regression proves it now returns `400`, rejects a different same-team reviewer with `403`, persists a saved evidence update and audit entry, then permits only the named owner to approve.
+- Replaced GitHub OAuth with Sociobot Entra External ID authorization-code configuration at `/auth/entra`. ID tokens are verified against OIDC metadata, issuer, audience, and JWKS before a session is created.
+- Replaced the deployment-wide GitHub installation id with `GITHUB_TEAM_INSTALLATIONS`, keyed by the exact Entra team claim (`entra:<team-id>`). An unmapped team cannot obtain an installation token. Changed-file import now paginates all GitHub pages and refuses an unsafe import above 10,000 files.
+- Added durable real-packet evidence updates, immutable approvals, a visible sign-out control, saved-packet reopening, correct demo/back routing, durable demo approval display, dark-theme contrast fixes, 44px navigation/footer targets, and removed the dead Param Factory link.
+- Registered the reliance-worthy approval and Entra/team-installation claims in `.factory/claims.json` with exact Rust regression commands.
 
-## Release blockers
+## Verification
 
-- The deployed real workflow is unavailable: auth status reports both GitHub sign-in and GitHub App configuration false; `/auth/github` returns 503.
-- Required sign-in is GitHub OAuth, not the mandated Sociobot Entra External ID authority.
-- The backend approves packets with stored `missing` evidence and lets a different team member approve a named owner's packet. Frontend evidence resolution is not persisted for real packets.
-- GitHub import stops at the first 100 changed files and uses one global installation id that is not bound to the session's team.
-- Public GitHub/import/approval/privacy promises are not registered in `.factory/claims.json`.
-- Dark mode has serious Axe contrast failures (1.35:1 banner/footer text and 1.94:1 warning text).
+Run from a clean checkout:
 
-Secondary defects: the SPA header Demo link and Back navigation can show a non-demo `/demo`; several mobile links are below 44×44px; there is no sign-out control; `paramfactory.com` did not resolve.
+```sh
+npm ci
+npx tsc --noEmit
+npm test
+npm run build
+cargo fmt --check
+cargo test
+cargo clippy -- -D warnings
+cargo build --release
+```
 
-Full evidence, exact commands, pass results, and defect reproduction are in `.factory/verification-2.md`. Browser and Lighthouse evidence is under `.factory/verification-artifacts/`.
+Completed locally on 2026-08-28:
 
-## Verification summary
+- `npm ci`: 0 vulnerabilities reported.
+- `npx tsc --noEmit`: pass.
+- `npm test`: 11/11 browser tests, including dark Axe, demo history, persistent sample approval, and 390px touch targets.
+- `npm run build`: pass; `dist/` produced (5.67 KB gzip JS, 3.31 KB gzip CSS).
+- `cargo fmt --check`, `cargo test` (7/7), `cargo clippy -- -D warnings`, and `cargo build --release`: pass.
+- Release binary smoke: `/health` returned the supplied build id and an unauthenticated approval returned `401` with the Sociobot sign-in message.
 
-- Claims after `npm ci`: 3/3 pass.
-- `npx tsc --noEmit`, `npm test` (7/7), `npm run build`: pass.
-- `cargo fmt --check`, `cargo test` (5/5), `cargo clippy -- -D warnings`, `cargo build --release`: pass.
-- Live build identity and candidate JS/CSS hashes: exact match.
-- Live rate allowance: 40 requests/second/client; excess returned 429 with `Retry-After: 1`.
-- Privacy request log: same-origin only.
-- Mobile Lighthouse: 100/100/100/100; LCP 1.7s, CLS 0.
-- Light-mode Axe: zero serious/critical; dark-mode Axe: FAIL.
+## Deployment configuration
 
-Docker was not rebuilt because the verifier environment has no Docker command. No product code was modified; this verification changes only `.factory` evidence and handoff documentation.
+The container remains a Rust/Axum service on `PORT=8080`; the Docker image starts without credentials for the local demo and health endpoint. The real workflow requires these deployment secrets/configuration values, which are intentionally not in the repository:
 
-## Next steps
+```text
+ENTRA_AUTHORITY=https://sociobotcustomers.ciamlogin.com/<tenant>
+ENTRA_CLIENT_ID=<Entra application id>
+ENTRA_CLIENT_SECRET=<Entra application secret>
+ENTRA_TEAM_CLAIM=extension_DiffGateTeam
+GITHUB_APP_ID=<GitHub App id>
+GITHUB_APP_PRIVATE_KEY=<GitHub App PEM>
+GITHUB_TEAM_INSTALLATIONS={"entra:<team-id>":"<installation-id>"}
+GITHUB_APP_SLUG=<GitHub App slug>
+PUBLIC_BASE_URL=https://agent-diff-gate.sociobot.in
+```
 
-Repair the approval authorization/state model first, then deploy working Entra identity and team-bound GitHub installation configuration. Add end-to-end claim coverage for the real import/review/approval/audit flow before re-verification.
+The Entra application must issue the selected team claim. The GitHub App needs only pull-request and contents read access and must be installed by each mapped team. No global installation fallback exists.
+
+## Known external dependency
+
+This repair cannot make a production user sign in until the factory provisions the Entra and GitHub App secret values above. The live deployment should be rechecked with a real mapped team after those values are supplied; the sample demo is unaffected.

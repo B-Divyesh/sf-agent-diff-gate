@@ -2,7 +2,7 @@
 
 Review agent changes before merge. Diff Gate is for 3–30 person software teams that need a named owner and review evidence before an agent-authored change lands.
 
-It imports an installed GitHub App's pull requests into a review packet. The packet records changed paths, default contract/migration checks, test evidence, and the named owner's approval. It does not write code or merge pull requests.
+It imports a team-bound GitHub App pull request into a review packet. The packet records changed paths, default contract/migration checks, saved test evidence, and the named owner's approval. It does not write code or merge pull requests.
 
 ## Try it
 
@@ -20,16 +20,18 @@ cargo run
 
 Visit `http://localhost:8080`. The server uses `PORT` (default `8080`) and creates a SQLite database under `/data`. For a local non-container run, set `DATABASE_URL=sqlite:diff-gate.db?mode=rwc` if `/data` is not writable.
 
-The sample demo works with no configuration. Real review packets require GitHub identity and an installed GitHub App:
+The sample demo works with no configuration. Real review packets use Sociobot Entra External ID and a team-bound GitHub App installation:
 
 ```sh
-GITHUB_OAUTH_CLIENT_ID=... GITHUB_OAUTH_CLIENT_SECRET=... \
+ENTRA_AUTHORITY=https://sociobotcustomers.ciamlogin.com/<tenant> \
+ENTRA_CLIENT_ID=... ENTRA_CLIENT_SECRET=... \
+ENTRA_TEAM_CLAIM=extension_DiffGateTeam \
 GITHUB_APP_ID=... GITHUB_APP_PRIVATE_KEY='-----BEGIN...\\n...' \
-GITHUB_APP_INSTALLATION_ID=... GITHUB_APP_SLUG=... \
+GITHUB_TEAM_INSTALLATIONS='{"entra:<team-id>":"<installation-id>"}' GITHUB_APP_SLUG=... \
 PUBLIC_BASE_URL=https://your-host cargo run
 ```
 
-The OAuth app requests `read:user` and `read:org` to identify a reviewer and their active organization. Repository reads use a short-lived GitHub App installation token; configure the App with read-only pull-request and contents permissions for the repositories that team explicitly installs. Packets are scoped to the signed-in GitHub organization; a user without one receives a private workspace.
+Configure the Entra application to issue the `extension_DiffGateTeam` claim (or set `ENTRA_TEAM_CLAIM` to your assigned team claim). The service validates the Entra issuer, audience, and signing key before creating a secure session. `GITHUB_TEAM_INSTALLATIONS` maps that exact claim value, prefixed with `entra:`, to one installation id; an unmapped team cannot import. Repository reads use a short-lived GitHub App installation token with only pull-request and contents read permission. Imports paginate changed files and stop safely above 10,000 files.
 
 For frontend iteration, run `npm run dev` and visit the address Vite prints.
 
@@ -44,7 +46,7 @@ docker build --build-arg BUILD_SHA=dev -t diff-gate .
 docker run --rm -p 8080:8080 diff-gate
 ```
 
-The browser tests include the observable demo privacy boundary and JSON packet export claims. See `.factory/claims.json` and `.factory/demo.md`.
+The browser tests include the observable demo privacy boundary and JSON packet export claims. The Rust suite covers team isolation, named-owner approval with durable evidence, and Entra/team installation configuration. See `.factory/claims.json` and `.factory/demo.md`.
 
 ## Deploy
 

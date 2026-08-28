@@ -54,3 +54,46 @@ test('demo has no serious or critical axe findings', async ({ page }) => {
   const blocking = results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');
   expect(blocking).toEqual([]);
 });
+
+test('dark mode has no serious or critical axe findings', async ({ browser }) => {
+  const context = await browser.newContext({ colorScheme: 'dark' });
+  const page = await context.newPage();
+  await page.goto('/demo');
+  const results = await new AxeBuilder({ page }).analyze();
+  const blocking = results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');
+  expect(blocking).toEqual([]);
+  await context.close();
+});
+
+test('header demo route and browser Back always restore the demo sandbox', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Demo' }).click();
+  await expect(page).toHaveURL(/\/demo$/);
+  await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
+  await page.getByRole('button', { name: 'Start for real' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/demo$/);
+  await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
+});
+
+test('demo approval is retained after reload once every check is resolved', async ({ page }) => {
+  await page.goto('/demo');
+  await page.getByRole('button', { name: 'Mark reviewed' }).first().click();
+  await page.getByRole('button', { name: 'Mark reviewed' }).first().click();
+  await page.getByRole('button', { name: 'Approve for merge' }).click();
+  await expect(page.getByText('Approved by')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Approved by')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approved' })).toBeDisabled();
+});
+
+test('navigation and footer links meet 44px touch targets at 390px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/demo');
+  for (const link of [page.getByRole('link', { name: 'Demo' }), page.getByRole('link', { name: 'Privacy' }).last(), page.getByRole('link', { name: 'Terms' })]) {
+    const box = await link.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
+});

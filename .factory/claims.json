@@ -19,5 +19,26 @@
     "where": "real packet sign-in panel and README",
     "test": "cargo test packet_reads_and_approvals_are_scoped_to_the_signed_in_team",
     "sandbox": "two seeded team sessions; assert the other team receives 404 for read and approval, then assert the owning team can approve and creates an audit record"
+  },
+  {
+    "id": "named-approval",
+    "claim": "Only the named owner can approve after every saved check is resolved.",
+    "where": "review packet approval status and README",
+    "test": "cargo test approval_rejects_missing_evidence_and_wrong_owner_and_persists_saved_evidence",
+    "sandbox": "seeded same-team owner and reviewer sessions; reject missing evidence and wrong owner, save evidence, approve as owner, and assert the durable audit"
+  },
+  {
+    "id": "entra-team-installation",
+    "claim": "Sociobot Entra identity and GitHub access are configured per team.",
+    "where": "landing facts, real-work panel, README, and privacy page",
+    "test": "cargo test entra_and_github_installations_are_configured_per_team",
+    "sandbox": "configured Entra callback and two team ids; assert only the mapped team resolves to its GitHub App installation"
+  },
+  {
+    "id": "no-third-party-runtime",
+    "claim": "The sample demo has no analytics or third-party runtime scripts.",
+    "where": "README privacy section",
+    "test": "npm run test:browser -- --grep @claim:sample-sandbox",
+    "sandbox": "fresh browser context at /demo; record every request during the complete shipped sample load and assert every origin is the product origin"
   }
 ]
