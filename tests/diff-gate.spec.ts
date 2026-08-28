@@ -1,12 +1,32 @@
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
-test('@claim:sample-sandbox opens a complete packet and keeps its state in demo mode', async ({ page }) => {
+const signedOut = { authenticated: false, entra_sign_in_configured: false, github_app_configured: false };
+async function mockSignedOut(page: import('@playwright/test').Page) {
+  await page.route('**/api/auth/status', route => route.fulfill({ json: signedOut }));
+}
+
+test('@claim:sample-sandbox keeps sample data isolated and discards it when demo mode ends', async ({ page }) => {
   const requests:string[]=[]; page.on('request', r=>requests.push(r.url()));
   await page.goto('/demo');
   await expect(page.getByRole('heading',{name:'See an agent change under review'})).toBeVisible();
   await expect(page.getByRole('heading',{name:'Add organization-level retention controls'})).toBeVisible();
   await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
+  await page.getByRole('button',{name:'Mark reviewed'}).first().click();
+  await page.getByRole('link',{name:'Privacy'}).first().click();
+  expect(await page.evaluate(() => sessionStorage.getItem('demo:diff-gate'))).toBeNull();
+  await page.getByRole('link',{name:'Demo'}).click();
+  await expect(page.getByText('2 owner checks')).toBeVisible();
+  expect(requests.every(url=>new URL(url).origin==='http://127.0.0.1:4173')).toBeTruthy();
+});
+test('@claim:no-third-party-runtime sends no demo data off-origin', async ({ page }) => {
+  const requests:string[]=[]; page.on('request', request=>requests.push(request.url()));
+  await mockSignedOut(page);
+  await page.goto('/');
+  await page.getByRole('button',{name:'Try it with sample data'}).click();
+  await page.getByRole('button',{name:'Mark reviewed'}).first().click();
+  await page.getByRole('button',{name:'Export packet'}).click();
+  expect(requests.length).toBeGreaterThan(0);
   expect(requests.every(url=>new URL(url).origin==='http://127.0.0.1:4173')).toBeTruthy();
 });
 test('@claim:packet-export exports the review packet as JSON', async ({ page }) => {
@@ -55,17 +75,64 @@ test('demo has no serious or critical axe findings', async ({ page }) => {
   expect(blocking).toEqual([]);
 });
 
-test('dark mode has no serious or critical axe findings', async ({ browser }) => {
-  const context = await browser.newContext({ colorScheme: 'dark' });
+test('dark mode has no serious or critical axe findings on every public route', async ({ browser }) => {
+  const context = await browser.newContext({ colorScheme: 'dark', viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
-  await page.goto('/demo');
-  const results = await new AxeBuilder({ page }).analyze();
-  const blocking = results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');
-  expect(blocking).toEqual([]);
+  await mockSignedOut(page);
+  for (const path of ['/', '/demo', '/privacy', '/terms']) {
+    await page.goto(path);
+    const results = await new AxeBuilder({ page }).analyze();
+    const blocking = results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');
+    expect(blocking, `${path}: ${JSON.stringify(blocking)}`).toEqual([]);
+  }
   await context.close();
 });
 
+test('@claim:audit-export signed-in packet history exposes retention, audit export, and confirmed deletion', async ({ page }) => {
+  let deleted = false;
+  let retention = 90;
+  const packet = {
+    id: 'packet-1', title: 'Update account contract', owner: 'owner@example.com',
+    status: 'approved', created_at: '2026-08-28T10:00:00Z', approved_by: 'owner@example.com',
+    approved_at: '2026-08-28T10:05:00Z', source_url: null,
+    data: JSON.stringify({ source: 'Fixture', changed: ['src/api/account.ts'], checks: [{ label: 'Contract changed', detail: 'Reviewed.', state: 'done' }] }),
+  };
+  await page.route('**/api/**', async route => {
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path === '/api/auth/status') return route.fulfill({ json: { authenticated: true, entra_sign_in_configured: true, github_app_configured: true, user: 'owner@example.com', team: 'Quality' } });
+    if (path === '/api/packets' && request.method() === 'GET') return route.fulfill({ json: deleted ? [] : [{ id: packet.id, title: packet.title, status: packet.status }] });
+    if (path === '/api/settings' && request.method() === 'GET') return route.fulfill({ json: { retention_days: retention } });
+    if (path === '/api/settings' && request.method() === 'PUT') {
+      retention = JSON.parse(request.postData() || '{}').retention_days;
+      return route.fulfill({ json: { retention_days: retention } });
+    }
+    if (path === `/api/packets/${packet.id}/audit`) return route.fulfill({ json: [{ id: 'audit-1', actor: 'owner@example.com', action: 'approved', detail: 'Owner approved this packet.', created_at: packet.approved_at }] });
+    if (path === `/api/packets/${packet.id}` && request.method() === 'GET') return route.fulfill({ json: packet });
+    if (path === `/api/packets/${packet.id}` && request.method() === 'DELETE') { deleted = true; return route.fulfill({ status: 204 }); }
+    return route.fulfill({ status: 404, json: { error: 'Unexpected fixture request.' } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: /Update account contract/ }).click();
+  await expect(page.getByRole('heading', { name: 'Audit history' })).toBeVisible();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export packet and history' }).click();
+  const exportedFile = await download;
+  expect(exportedFile.suggestedFilename()).toBe('diff-gate-packet.json');
+  const stream = await exportedFile.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  expect(JSON.parse(Buffer.concat(chunks).toString()).audit_history).toHaveLength(1);
+  page.once('dialog', dialog => dialog.accept());
+  await page.getByRole('button', { name: 'Delete packet' }).click();
+  await expect(page.getByText('No saved review packets yet.')).toBeVisible();
+  await page.locator('#retention-days').fill('30');
+  await page.getByRole('button', { name: 'Save retention' }).click();
+  await expect(page.getByText('Packets will be kept for 30 days.')).toBeVisible();
+});
+
 test('header demo route and browser Back always restore the demo sandbox', async ({ page }) => {
+  await mockSignedOut(page);
   await page.goto('/');
   await page.getByRole('link', { name: 'Demo' }).click();
   await expect(page).toHaveURL(/\/demo$/);

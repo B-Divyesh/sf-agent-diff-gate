@@ -8,7 +8,7 @@
 
 - Paper `#F6F1E6`; ink `#17212B`; muted ink `#51606A`; rule `#BDC5BF`
 - Signal cyan `#007F8B` with white ink for actions; review yellow `#F7C948`; escalation coral `#C94C3B`; approved green `#1E6F50`
-- Night treatment: `#111923` paper, `#ECF0E9` ink, with the same signal colours lifted slightly.
+- Night treatment: `#111923` paper, `#ECF0E9` ink, cyan `#47C5D0` for labels, and dark cyan `#006F7A` behind white action text.
 - Display and body: self-hosted system sans stack (no network font request). A mono system stack carries paths, commands, and evidence. This avoids external font traffic and keeps code dense.
 - Spacing follows an 8px scale. Wide screens use asymmetric 7/5 columns; small screens stack packet context before checks.
 

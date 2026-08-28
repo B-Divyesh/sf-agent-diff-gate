@@ -1,10 +1,10 @@
 [
   {
     "id": "sample-sandbox",
-    "claim": "Sample data stays in this browser.",
-    "where": "landing facts and demo banner",
+    "claim": "Sample data stays in this browser and is cleared when demo mode ends.",
+    "where": "landing facts, demo banner, privacy page, and README",
     "test": "npm run test:browser -- --grep @claim:sample-sandbox",
-    "sandbox": "fresh browser context at /demo; observe a complete sample packet and assert all requests are same-origin"
+    "sandbox": "fresh browser context at /demo; change sample state, navigate to Privacy, assert demo storage is gone, re-enter a fresh sample, and assert requests are same-origin"
   },
   {
     "id": "packet-export",
@@ -29,16 +29,44 @@
   },
   {
     "id": "entra-team-installation",
-    "claim": "Sociobot Entra identity and GitHub access are configured per team.",
+    "claim": "Only the Sociobot Entra tenant is accepted, and GitHub installations are mapped per team.",
     "where": "landing facts, real-work panel, README, and privacy page",
     "test": "cargo test entra_and_github_installations_are_configured_per_team",
-    "sandbox": "configured Entra callback and two team ids; assert only the mapped team resolves to its GitHub App installation"
+    "sandbox": "configured Sociobot and non-Sociobot authorities plus two team ids; reject every other authority and assert only the mapped team resolves to its GitHub App installation"
+  },
+  {
+    "id": "github-complete-import",
+    "claim": "GitHub imports read every changed-file page and classify contract and migration paths.",
+    "where": "landing facts, how-it-works section, privacy page, and README",
+    "test": "cargo test github_import_paginates_and_classifies_all_changed_paths",
+    "sandbox": "local two-page GitHub fixture with 102 changed paths; assert page two is read and its contract and migration paths are both classified"
+  },
+  {
+    "id": "retention-deletion",
+    "claim": "Teams can set packet retention and delete a packet with its audit history.",
+    "where": "team settings, packet controls, privacy page, and README",
+    "test": "cargo test retention_and_explicit_deletion_remove_packets_and_audit",
+    "sandbox": "seed an authenticated team with old and current packets; set 30-day retention and assert old packet/audit deletion, then explicitly delete the current packet and audit"
+  },
+  {
+    "id": "audit-history",
+    "claim": "Packet audit history is visible only to its team, and duplicate approval reports a conflict.",
+    "where": "packet audit history and README",
+    "test": "cargo test audit_history_is_team_scoped_and_concurrent_approval_reports_conflict",
+    "sandbox": "send two simultaneous valid owner approvals; assert one success and one conflict, then assert another team cannot read the audit history"
+  },
+  {
+    "id": "audit-export",
+    "claim": "A signed-in reviewer can view and export a packet's audit history.",
+    "where": "packet audit history, export control, and README",
+    "test": "npm run test:browser -- --grep @claim:audit-export",
+    "sandbox": "mock an authenticated same-team packet API; open saved history, export JSON, and assert the audit entry is included"
   },
   {
     "id": "no-third-party-runtime",
     "claim": "The sample demo has no analytics or third-party runtime scripts.",
     "where": "README privacy section",
-    "test": "npm run test:browser -- --grep @claim:sample-sandbox",
-    "sandbox": "fresh browser context at /demo; record every request during the complete shipped sample load and assert every origin is the product origin"
+    "test": "npm run test:browser -- --grep @claim:no-third-party-runtime",
+    "sandbox": "fresh browser context; record every request during landing, sample launch, evidence change, and export; assert every origin is the product origin"
   }
 ]

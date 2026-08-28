@@ -1,2 +1,2 @@
 .hero-print img{display:block;width:100%;height:100%;object-fit:cover}.hero-print:after{background:linear-gradient(128deg,transparent 48%,#c94c3b33 49% 61%,transparent 62%)}.art-stamp{background:#f6f1e6cc}
-.site-head nav a{display:inline-flex;align-items:center;min-height:44px}.text-button,.small-button{min-height:44px}@media(prefers-color-scheme:dark){:root{--cyan:#47c5d0;--coral:#f18171;--green:#64bd94}}
+.site-head nav a{display:inline-flex;align-items:center;min-height:44px}.text-button,.small-button{min-height:44px}@media(prefers-color-scheme:dark){:root{--cyan:#47c5d0;--coral:#f18171;--green:#64bd94}.primary{background:#006f7a;border-color:#006f7a}.primary:hover{background:#005762}.boundary{color:#ecf0e9}}

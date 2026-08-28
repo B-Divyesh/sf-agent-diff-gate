@@ -27,7 +27,8 @@ body {
   line-height: 1.52;
 }
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 button,
@@ -64,6 +65,10 @@ button:disabled {
 button:focus-visible,
 a:focus-visible,
 input:focus-visible {
+  outline: 3px solid var(--coral);
+  outline-offset: 3px;
+}
+textarea:focus-visible {
   outline: 3px solid var(--coral);
   outline-offset: 3px;
 }
@@ -433,6 +438,32 @@ code {
   gap: 15px;
   flex-wrap: wrap;
 }
+.danger-button {
+  background: transparent;
+  color: var(--coral);
+  border-color: var(--coral);
+}
+.audit {
+  border-top: 2px solid var(--ink);
+  padding: 24px 0;
+}
+.audit ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.audit li {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+.audit span {
+  color: var(--muted);
+  display: block;
+  font-size: 0.82rem;
+}
+.audit p {
+  margin: 3px 0 0;
+}
 .status {
   font-size: 0.87rem;
   margin: 0;
@@ -451,6 +482,41 @@ code {
 }
 .empty-panel {
   max-width: 720px;
+}
+.packet-form {
+  border-top: 1px solid var(--line);
+  margin-top: 28px;
+  padding-top: 24px;
+}
+.packet-form label {
+  display: block;
+  font-weight: 700;
+  margin: 14px 0 6px;
+}
+.packet-form input,
+.packet-form textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  background: var(--white);
+  color: var(--ink);
+  padding: 9px;
+}
+.packet-form button {
+  margin-top: 14px;
+}
+.packet-history ul {
+  list-style: none;
+  padding: 0;
+}
+.history-link {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  background: transparent;
+  color: var(--ink);
+  margin: 8px 0;
 }
 .how {
   border-top: 2px solid var(--ink);

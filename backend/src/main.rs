@@ -31,6 +31,8 @@ use uuid::Uuid;
 const RATE_LIMIT_PER_SECOND: u32 = 40;
 const RETRY_AFTER_SECONDS: &str = "1";
 const SESSION_DAYS: i64 = 14;
+const DEFAULT_RETENTION_DAYS: i64 = 90;
+const MAX_RETENTION_DAYS: i64 = 3650;
 
 #[derive(Clone)]
 struct AppState {
@@ -86,7 +88,7 @@ impl EntraConfig {
         Self {
             authority: env::var("ENTRA_AUTHORITY")
                 .ok()
-                .map(|value| value.trim_end_matches('/').to_string()),
+                .and_then(|value| sociobot_entra_authority(&value)),
             client_id: env::var("ENTRA_CLIENT_ID").ok(),
             client_secret: env::var("ENTRA_CLIENT_SECRET").ok(),
             public_base: env::var("PUBLIC_BASE_URL")
@@ -96,7 +98,12 @@ impl EntraConfig {
         }
     }
     fn ready(&self) -> bool {
-        self.authority.is_some() && self.client_id.is_some() && self.client_secret.is_some()
+        self.authority
+            .as_deref()
+            .and_then(sociobot_entra_authority)
+            .is_some()
+            && self.client_id.is_some()
+            && self.client_secret.is_some()
     }
     fn callback_url(&self) -> String {
         format!(
@@ -104,6 +111,21 @@ impl EntraConfig {
             self.public_base.trim_end_matches('/')
         )
     }
+}
+fn sociobot_entra_authority(raw: &str) -> Option<String> {
+    let value = raw.trim_end_matches('/');
+    let url = Url::parse(value).ok()?;
+    (url.scheme() == "https"
+        && url.host_str() == Some("sociobotcustomers.ciamlogin.com")
+        && url.port_or_known_default() == Some(443)
+        && url.username().is_empty()
+        && url.password().is_none()
+        && url
+            .path_segments()
+            .is_some_and(|mut parts| parts.next().is_some_and(|tenant| !tenant.is_empty()))
+        && url.query().is_none()
+        && url.fragment().is_none())
+    .then(|| value.to_string())
 }
 #[derive(Serialize)]
 struct Health {
@@ -130,6 +152,22 @@ struct Packet {
     approved_by: Option<String>,
     approved_at: Option<String>,
     source_url: Option<String>,
+}
+#[derive(Serialize, FromRow)]
+struct AuditEntry {
+    id: String,
+    actor: String,
+    action: String,
+    detail: String,
+    created_at: String,
+}
+#[derive(Serialize)]
+struct TeamSettings {
+    retention_days: i64,
+}
+#[derive(Deserialize)]
+struct SettingsUpdate {
+    retention_days: i64,
 }
 #[derive(Deserialize)]
 struct NewPacket {
@@ -267,6 +305,7 @@ async fn session(state: &AppState, headers: &HeaderMap) -> Result<Session, AppEr
     sqlx::query_as::<_, Session>("SELECT s.team_id, s.login, t.name AS team_name FROM sessions s JOIN teams t ON t.id=s.team_id WHERE s.token=? AND s.expires_at > ?").bind(token).bind(Utc::now().to_rfc3339()).fetch_optional(&state.db).await?.ok_or_else(|| AppError::unauthorized("Your session ended. Sign in with Sociobot again."))
 }
 async fn auth_status(State(state): State<AppState>, headers: HeaderMap) -> Json<AuthStatus> {
+    let _ = purge_expired_transient_rows(&state.db).await;
     let active = session(&state, &headers).await.ok();
     Json(AuthStatus {
         authenticated: active.is_some(),
@@ -291,6 +330,7 @@ async fn entra_login(State(state): State<AppState>) -> Result<Redirect, AppError
             "Sociobot Entra sign-in is not configured on this deployment.",
         ));
     }
+    purge_expired_transient_rows(&state.db).await?;
     let nonce = Uuid::new_v4().to_string();
     sqlx::query("INSERT INTO oauth_states (state,created_at) VALUES (?,?)")
         .bind(&nonce)
@@ -422,7 +462,28 @@ async fn list_packets(
     headers: HeaderMap,
 ) -> Result<Json<Vec<Packet>>, AppError> {
     let who = session(&state, &headers).await?;
+    purge_team_packets(&state.db, &who.team_id).await?;
     Ok(Json(sqlx::query_as("SELECT id,title,owner,status,data,created_at,approved_by,approved_at,source_url FROM packets WHERE team_id=? ORDER BY created_at DESC LIMIT 50").bind(who.team_id).fetch_all(&state.db).await?))
+}
+async fn list_packet_audit(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<Vec<AuditEntry>>, AppError> {
+    let who = session(&state, &headers).await?;
+    purge_team_packets(&state.db, &who.team_id).await?;
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM packets WHERE id=? AND team_id=?)")
+            .bind(&id)
+            .bind(&who.team_id)
+            .fetch_one(&state.db)
+            .await?;
+    if !exists {
+        return Err(AppError::not_found(
+            "That review packet was not found in this team.",
+        ));
+    }
+    Ok(Json(sqlx::query_as("SELECT id,actor,action,detail,created_at FROM packet_audit WHERE packet_id=? ORDER BY created_at,id").bind(id).fetch_all(&state.db).await?))
 }
 async fn create_packet(
     State(state): State<AppState>,
@@ -468,7 +529,119 @@ async fn get_packet(
     Path(id): Path<String>,
 ) -> Result<Json<Packet>, AppError> {
     let who = session(&state, &headers).await?;
+    purge_team_packets(&state.db, &who.team_id).await?;
     sqlx::query_as("SELECT id,title,owner,status,data,created_at,approved_by,approved_at,source_url FROM packets WHERE id=? AND team_id=?").bind(id).bind(who.team_id).fetch_optional(&state.db).await?.map(Json).ok_or_else(|| AppError::not_found("That review packet was not found in this team."))
+}
+async fn delete_packet(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<StatusCode, AppError> {
+    let who = session(&state, &headers).await?;
+    let mut transaction = state.db.begin().await?;
+    let owned: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM packets WHERE id=? AND team_id=?)")
+            .bind(&id)
+            .bind(&who.team_id)
+            .fetch_one(&mut *transaction)
+            .await?;
+    if !owned {
+        return Err(AppError::not_found(
+            "That review packet was not found in this team.",
+        ));
+    }
+    sqlx::query("DELETE FROM packet_audit WHERE packet_id=?")
+        .bind(&id)
+        .execute(&mut *transaction)
+        .await?;
+    sqlx::query("DELETE FROM packets WHERE id=? AND team_id=?")
+        .bind(&id)
+        .bind(&who.team_id)
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn get_settings(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<TeamSettings>, AppError> {
+    let who = session(&state, &headers).await?;
+    Ok(Json(TeamSettings {
+        retention_days: retention_days(&state.db, &who.team_id).await?,
+    }))
+}
+
+async fn update_settings(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<SettingsUpdate>,
+) -> Result<Json<TeamSettings>, AppError> {
+    let who = session(&state, &headers).await?;
+    if !(1..=MAX_RETENTION_DAYS).contains(&input.retention_days) {
+        return Err(AppError::bad("Choose retention between 1 and 3,650 days."));
+    }
+    sqlx::query("INSERT INTO team_settings (team_id,retention_days) VALUES (?,?) ON CONFLICT(team_id) DO UPDATE SET retention_days=excluded.retention_days")
+        .bind(&who.team_id)
+        .bind(input.retention_days)
+        .execute(&state.db)
+        .await?;
+    purge_team_packets(&state.db, &who.team_id).await?;
+    Ok(Json(TeamSettings {
+        retention_days: input.retention_days,
+    }))
+}
+
+async fn retention_days(db: &SqlitePool, team_id: &str) -> Result<i64, sqlx::Error> {
+    Ok(
+        sqlx::query_scalar::<_, i64>("SELECT retention_days FROM team_settings WHERE team_id=?")
+            .bind(team_id)
+            .fetch_optional(db)
+            .await?
+            .unwrap_or(DEFAULT_RETENTION_DAYS),
+    )
+}
+
+async fn purge_team_packets(db: &SqlitePool, team_id: &str) -> Result<(), sqlx::Error> {
+    let days = retention_days(db, team_id).await?;
+    let cutoff = (Utc::now() - ChronoDuration::days(days)).to_rfc3339();
+    let mut transaction = db.begin().await?;
+    sqlx::query("DELETE FROM packet_audit WHERE packet_id IN (SELECT id FROM packets WHERE team_id=? AND created_at < ?)")
+        .bind(team_id)
+        .bind(&cutoff)
+        .execute(&mut *transaction)
+        .await?;
+    sqlx::query("DELETE FROM packets WHERE team_id=? AND created_at < ?")
+        .bind(team_id)
+        .bind(cutoff)
+        .execute(&mut *transaction)
+        .await?;
+    transaction.commit().await?;
+    Ok(())
+}
+
+async fn purge_expired_transient_rows(db: &SqlitePool) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM sessions WHERE expires_at <= ?")
+        .bind(Utc::now().to_rfc3339())
+        .execute(db)
+        .await?;
+    sqlx::query("DELETE FROM oauth_states WHERE created_at < ?")
+        .bind((Utc::now() - ChronoDuration::minutes(10)).to_rfc3339())
+        .execute(db)
+        .await?;
+    Ok(())
+}
+
+async fn purge_all_expired_data(db: &SqlitePool) -> Result<(), sqlx::Error> {
+    purge_expired_transient_rows(db).await?;
+    let teams = sqlx::query_scalar::<_, String>("SELECT id FROM teams")
+        .fetch_all(db)
+        .await?;
+    for team_id in teams {
+        purge_team_packets(db, &team_id).await?;
+    }
+    Ok(())
 }
 fn evidence_is_complete(data: &str) -> bool {
     serde_json::from_str::<serde_json::Value>(data)
@@ -563,9 +736,18 @@ async fn approve_packet(
     .await?
     .rows_affected();
     if updated != 1 {
-        return Err(AppError::not_found(
-            "That review packet was not found in this team.",
-        ));
+        let current: Option<String> =
+            sqlx::query_scalar("SELECT status FROM packets WHERE id=? AND team_id=?")
+                .bind(&id)
+                .bind(&who.team_id)
+                .fetch_optional(&state.db)
+                .await?;
+        return Err(match current.as_deref() {
+            Some("approved") => {
+                AppError::conflict("This packet is already approved and its approval is immutable.")
+            }
+            _ => AppError::not_found("That review packet was not found in this team."),
+        });
     }
     audit(
         &state.db,
@@ -690,12 +872,7 @@ async fn import_github_pr(
         .await
         .map_err(|_| AppError::service_unavailable("GitHub returned an invalid pull request."))?;
     let changed = github_changed_files(&state, &base, &token).await?;
-    let has_migration = changed
-        .iter()
-        .any(|f| f.contains("migration") || f.starts_with("db/"));
-    let has_contract = changed
-        .iter()
-        .any(|f| f.contains("api/") || f.contains("contract") || f.ends_with(".graphql"));
+    let (has_contract, has_migration) = classify_changed_paths(&changed);
     let checks = serde_json::json!([{"label":"Pull request imported","detail":format!("PR #{number} by {}. {} changed files.", pull.user.login, changed.len()),"state":"ready"},{"label":"Contract changed","detail":if has_contract {"API or contract path changed. Confirm downstream compatibility."} else {"No contract path matched the default policy."},"state":if has_contract {"risk"} else {"ready"}},{"label":"Migration found","detail":if has_migration {"Migration path changed. Database owner sign-off is required."} else {"No migration path matched the default policy."},"state":if has_migration {"risk"} else {"ready"}},{"label":"Test evidence","detail":"Attach the test command and result before owner approval.","state":"missing"}]);
     let data = serde_json::json!({"source":format!("PR #{number} · GitHub App import"),"changed":changed,"checks":checks,"policy":"Default policy: contracts and migrations require named owner review."});
     let packet = Packet {
@@ -719,6 +896,16 @@ async fn import_github_pr(
     )
     .await?;
     Ok((StatusCode::CREATED, Json(packet)))
+}
+
+fn classify_changed_paths(changed: &[String]) -> (bool, bool) {
+    let has_migration = changed
+        .iter()
+        .any(|f| f.contains("migration") || f.starts_with("db/"));
+    let has_contract = changed
+        .iter()
+        .any(|f| f.contains("api/") || f.contains("contract") || f.ends_with(".graphql"));
+    (has_contract, has_migration)
 }
 
 async fn github_changed_files(
@@ -802,9 +989,10 @@ async fn rate_limit(
 async fn cache_headers(request: axum::extract::Request, next: middleware::Next) -> Response {
     let path = request.uri().path().to_string();
     let mut response = next.run(request).await;
-    let value = if path.starts_with("/assets/") || path.ends_with(".webp") || path.ends_with(".png")
-    {
+    let value = if path.starts_with("/assets/") {
         "public, max-age=31536000, immutable"
+    } else if path.ends_with(".webp") || path.ends_with(".png") || path.ends_with(".svg") {
+        "public, max-age=3600, must-revalidate"
     } else {
         "no-cache"
     };
@@ -912,9 +1100,13 @@ fn app(state: AppState) -> Router {
         .route("/api/packets", get(list_packets).post(create_packet))
         .route(
             "/api/packets/:id",
-            get(get_packet).put(update_packet_evidence),
+            get(get_packet)
+                .put(update_packet_evidence)
+                .delete(delete_packet),
         )
         .route("/api/packets/:id/approve", post(approve_packet))
+        .route("/api/packets/:id/audit", get(list_packet_audit))
+        .route("/api/settings", get(get_settings).put(update_settings))
         .route("/api/github/import", post(import_github_pr))
         .route("/api/auth/status", get(auth_status))
         .route("/auth/entra", get(entra_login))
@@ -941,6 +1133,10 @@ async fn security_headers(request: axum::extract::Request, next: middleware::Nex
         HeaderName::from_static("referrer-policy"),
         HeaderValue::from_static("strict-origin-when-cross-origin"),
     );
+    headers.insert(
+        HeaderName::from_static("strict-transport-security"),
+        HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+    );
     headers.insert(HeaderName::from_static("content-security-policy"),HeaderValue::from_static("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; frame-ancestors 'none'"));
     response
 }
@@ -954,6 +1150,7 @@ async fn create_schema(db: &SqlitePool) -> Result<(), sqlx::Error> {
     .await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS packets (id TEXT PRIMARY KEY,team_id TEXT NOT NULL DEFAULT '',title TEXT NOT NULL,owner TEXT NOT NULL,status TEXT NOT NULL,data TEXT NOT NULL,created_at TEXT NOT NULL,approved_by TEXT,approved_at TEXT,source_url TEXT)").execute(db).await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS packet_audit (id TEXT PRIMARY KEY,packet_id TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,detail TEXT NOT NULL,created_at TEXT NOT NULL)").execute(db).await?;
+    sqlx::query("CREATE TABLE IF NOT EXISTS team_settings (team_id TEXT PRIMARY KEY,retention_days INTEGER NOT NULL CHECK(retention_days BETWEEN 1 AND 3650))").execute(db).await?;
     Ok(())
 }
 #[tokio::main]
@@ -987,6 +1184,7 @@ async fn main() -> anyhow::Result<()> {
         .connect(&db_url)
         .await?;
     create_schema(&db).await?;
+    purge_all_expired_data(&db).await?;
     let state = AppState {
         db,
         build,
@@ -995,6 +1193,16 @@ async fn main() -> anyhow::Result<()> {
         github,
         http: Client::new(),
     };
+    let cleanup_db = state.db.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(Duration::from_secs(3600));
+        loop {
+            interval.tick().await;
+            if let Err(error) = purge_all_expired_data(&cleanup_db).await {
+                tracing::warn!(%error, "scheduled retention cleanup failed");
+            }
+        }
+    });
     let address = SocketAddr::from(([0, 0, 0, 0], port.parse()?));
     info!(%address,"listening");
     let listener = tokio::net::TcpListener::bind(address).await?;
@@ -1194,6 +1402,19 @@ mod tests {
             team_claim: "extension_DiffGateTeam".into(),
         };
         assert!(identity.ready());
+        let wrong_tenant = EntraConfig {
+            authority: Some("https://login.microsoftonline.com/tenant".into()),
+            ..identity.clone()
+        };
+        assert!(!wrong_tenant.ready());
+        assert!(
+            sociobot_entra_authority("http://sociobotcustomers.ciamlogin.com/tenant").is_none()
+        );
+        assert!(
+            sociobot_entra_authority("https://sociobotcustomers.ciamlogin.com:8443/tenant")
+                .is_none()
+        );
+        assert!(sociobot_entra_authority("https://evil.example/tenant").is_none());
         assert_eq!(
             identity.callback_url(),
             "https://agent-diff-gate.sociobot.in/auth/entra/callback"
@@ -1210,6 +1431,199 @@ mod tests {
         );
         assert_eq!(github.installation_for("entra:team-b"), None);
         assert!(github.app_ready());
+    }
+    #[tokio::test]
+    async fn github_import_paginates_and_classifies_all_changed_paths() {
+        async fn files(
+            axum::extract::Query(query): axum::extract::Query<HashMap<String, String>>,
+        ) -> Json<Vec<serde_json::Value>> {
+            if query.get("page").map(String::as_str) == Some("1") {
+                return Json(
+                    (0..100)
+                        .map(|index| serde_json::json!({"filename":format!("src/file-{index}.ts")}))
+                        .collect(),
+                );
+            }
+            Json(vec![
+                serde_json::json!({"filename":"src/api/contracts/user.graphql"}),
+                serde_json::json!({"filename":"db/migrations/20260828_users.sql"}),
+            ])
+        }
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, Router::new().route("/pulls/42/files", get(files)))
+                .await
+                .unwrap();
+        });
+        let (_, db) = test_app().await;
+        let state = AppState {
+            db,
+            build: "fixture".into(),
+            limits: Arc::new(Mutex::new(HashMap::new())),
+            identity: EntraConfig::default(),
+            github: GithubConfig::default(),
+            http: Client::new(),
+        };
+        let changed = github_changed_files(
+            &state,
+            &format!("http://{address}/pulls/42"),
+            "fixture-installation-token",
+        )
+        .await
+        .unwrap();
+        assert_eq!(changed.len(), 102);
+        assert_eq!(classify_changed_paths(&changed), (true, true));
+        server.abort();
+    }
+    #[tokio::test]
+    async fn retention_and_explicit_deletion_remove_packets_and_audit() {
+        let (app, db) = test_app().await;
+        let future = (Utc::now() + ChronoDuration::days(1)).to_rfc3339();
+        let old = (Utc::now() - ChronoDuration::days(31)).to_rfc3339();
+        sqlx::query("INSERT INTO teams (id,name,created_at) VALUES ('team','Team',?)")
+            .bind(&future)
+            .execute(&db)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO sessions (token,team_id,login,expires_at) VALUES ('token','team','owner',?)")
+            .bind(&future).execute(&db).await.unwrap();
+        sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at) VALUES ('old','team','Old','owner','needs review','{}',?),('current','team','Current','owner','needs review','{}',?)")
+            .bind(&old).bind(&future).execute(&db).await.unwrap();
+        sqlx::query("INSERT INTO packet_audit (id,packet_id,actor,action,detail,created_at) VALUES ('old-audit','old','owner','created','Old',?),('current-audit','current','owner','created','Current',?)")
+            .bind(&old).bind(&future).execute(&db).await.unwrap();
+        let defaults = app
+            .clone()
+            .oneshot(
+                Request::get("/api/settings")
+                    .header("cookie", "diff_gate_session=token")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let defaults_body = to_bytes(defaults.into_body(), usize::MAX).await.unwrap();
+        let defaults_json: serde_json::Value = serde_json::from_slice(&defaults_body).unwrap();
+        assert_eq!(defaults_json["retention_days"], DEFAULT_RETENTION_DAYS);
+        let settings = app
+            .clone()
+            .oneshot(
+                Request::put("/api/settings")
+                    .header("cookie", "diff_gate_session=token")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from("{\"retention_days\":30}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(settings.status(), StatusCode::OK);
+        let old_packets: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM packets WHERE id='old'")
+            .fetch_one(&db)
+            .await
+            .unwrap();
+        let old_audits: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM packet_audit WHERE packet_id='old'")
+                .fetch_one(&db)
+                .await
+                .unwrap();
+        assert_eq!((old_packets, old_audits), (0, 0));
+        let deleted = app
+            .oneshot(
+                Request::delete("/api/packets/current")
+                    .header("cookie", "diff_gate_session=token")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(deleted.status(), StatusCode::NO_CONTENT);
+        let remaining: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM packet_audit WHERE packet_id='current'")
+                .fetch_one(&db)
+                .await
+                .unwrap();
+        assert_eq!(remaining, 0);
+    }
+    #[tokio::test]
+    async fn audit_history_is_team_scoped_and_concurrent_approval_reports_conflict() {
+        let (app, db) = test_app().await;
+        let future = (Utc::now() + ChronoDuration::days(1)).to_rfc3339();
+        sqlx::query(
+            "INSERT INTO teams (id,name,created_at) VALUES ('team','Team',?),('other','Other',?)",
+        )
+        .bind(&future)
+        .bind(&future)
+        .execute(&db)
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO sessions (token,team_id,login,expires_at) VALUES ('token','team','owner',?),('other-token','other','owner',?)")
+            .bind(&future).bind(&future).execute(&db).await.unwrap();
+        sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at) VALUES ('packet','team','Ready','owner','needs review','{\"checks\":[{\"state\":\"done\"}]}',?)")
+            .bind(&future).execute(&db).await.unwrap();
+        let request = || {
+            Request::post("/api/packets/packet/approve")
+                .header("cookie", "diff_gate_session=token")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from("{}"))
+                .unwrap()
+        };
+        let (first, second) = tokio::join!(
+            app.clone().oneshot(request()),
+            app.clone().oneshot(request())
+        );
+        let statuses = [first.unwrap().status(), second.unwrap().status()];
+        assert!(statuses.contains(&StatusCode::OK));
+        assert!(statuses.contains(&StatusCode::CONFLICT));
+        let audit = app
+            .clone()
+            .oneshot(
+                Request::get("/api/packets/packet/audit")
+                    .header("cookie", "diff_gate_session=token")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(audit.status(), StatusCode::OK);
+        let hidden = app
+            .oneshot(
+                Request::get("/api/packets/packet/audit")
+                    .header("cookie", "diff_gate_session=other-token")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(hidden.status(), StatusCode::NOT_FOUND);
+    }
+    #[tokio::test]
+    async fn response_policy_distinguishes_hashed_and_stable_assets() {
+        let (app, _) = test_app().await;
+        let health = app
+            .clone()
+            .oneshot(
+                Request::get("/health")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            health.headers()["strict-transport-security"],
+            "max-age=31536000; includeSubDomains"
+        );
+        let stable = app
+            .oneshot(
+                Request::get("/change-control.webp")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            stable.headers()[header::CACHE_CONTROL],
+            "public, max-age=3600, must-revalidate"
+        );
     }
     #[tokio::test]
     async fn rate_limit_uses_the_first_forwarded_ip_and_returns_retry_after() {
