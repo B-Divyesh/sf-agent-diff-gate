@@ -1,0 +1,14 @@
+{
+  "url": "https://agent-diff-gate.sociobot.in/demo",
+  "loadMs": 535,
+  "errors": [],
+  "a11y": {
+    "title": "Demo — Diff Gate",
+    "lang": "en",
+    "h1": 1,
+    "main": true,
+    "imgsMissingAlt": 0,
+    "buttonsUnlabeled": 0,
+    "textLength": 972
+  }
+}

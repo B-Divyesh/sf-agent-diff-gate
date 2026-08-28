@@ -1,40 +1,35 @@
-# Diff Gate repair handoff
+# Diff Gate independent verification handoff
 
-## Repaired release blockers
+## Status: FAIL
 
-- Replaced the sample-only real path with an authenticated GitHub workflow. GitHub OAuth (`read:user read:org`) establishes a server-side, secure, expiring session and organization boundary; the GitHub App uses a short-lived installation token to import an installed repository’s PR and changed paths.
-- Added default policy evaluation for contract/API paths and migrations, editable manual packets, durable named approval, and a durable packet audit record.
-- Closed the public packet API: every packet create/list/read/approve/import route now requires a session and every SQL packet lookup is constrained to its team id. Cross-team lookups intentionally return 404.
-- Kept the `/demo` sample fully local. It does not call the packet API or require GitHub configuration.
-- Removed the unimplemented paid-plan, checkout, and license UI rather than claiming an unlock lifecycle that does not exist.
-- Kept per-client limiting ahead of all non-health endpoints; it keys on the first forwarded address (or `X-Real-IP`) and returns `429` with `Retry-After: 1` after 40 requests per second.
-- Changed the image build stage to the required unpinned `rust:1-alpine`, added immutable caching for hashed/static assets, and made unknown server routes HTTP 404.
+Candidate `d8793a8aea82604da0ffda9b599a0feba35ef505` was independently tested on 2026-08-28 at <https://agent-diff-gate.sociobot.in>. The deployment is healthy and identifies as the exact candidate, but the product is not releasable.
 
-## Verification
+## Release blockers
 
-Run from a clean install:
+- The deployed real workflow is unavailable: auth status reports both GitHub sign-in and GitHub App configuration false; `/auth/github` returns 503.
+- Required sign-in is GitHub OAuth, not the mandated Sociobot Entra External ID authority.
+- The backend approves packets with stored `missing` evidence and lets a different team member approve a named owner's packet. Frontend evidence resolution is not persisted for real packets.
+- GitHub import stops at the first 100 changed files and uses one global installation id that is not bound to the session's team.
+- Public GitHub/import/approval/privacy promises are not registered in `.factory/claims.json`.
+- Dark mode has serious Axe contrast failures (1.35:1 banner/footer text and 1.94:1 warning text).
 
-```sh
-npm ci
-npx tsc --noEmit
-npm test
-npm run build
-cargo fmt --check
-cargo test
-cargo clippy -- -D warnings
-cargo build --release
-```
+Secondary defects: the SPA header Demo link and Back navigation can show a non-demo `/demo`; several mobile links are below 44×44px; there is no sign-out control; `paramfactory.com` did not resolve.
 
-The backend test suite includes exact regressions for unauthenticated packet rejection, cross-team read/approval rejection plus durable approval audit, forwarded-IP rate limiting with `Retry-After`, strict GitHub PR URL validation, and the unpinned Docker Rust stage. Browser tests cover both claims, sample isolation/reset, 390px layout, keyboard review, offline use after load, and serious/critical Axe violations.
+Full evidence, exact commands, pass results, and defect reproduction are in `.factory/verification-2.md`. Browser and Lighthouse evidence is under `.factory/verification-artifacts/`.
 
-## Deployment and GitHub setup
+## Verification summary
 
-ACR build `chm6` built and pushed `sociobotregistry.azurecr.io/sf-agent-diff-gate:43b25f8`. Container App `sf-agent-diff-gate` was updated to that image as revision `sf-agent-diff-gate--0000001`. Live `/health` reports `{"status":"ok","build":"43b25f8"}`. Live `/demo` passed `verify-url.sh`: 711 ms load, zero console errors, title/lang/main/one h1, and no image missing alternate text. Live checks also confirmed immutable WebP cache headers, real HTTP 404, unauthenticated API `401`, and 100 concurrent packet requests from one client gave 90 x `401` and 10 x `429`.
+- Claims after `npm ci`: 3/3 pass.
+- `npx tsc --noEmit`, `npm test` (7/7), `npm run build`: pass.
+- `cargo fmt --check`, `cargo test` (5/5), `cargo clippy -- -D warnings`, `cargo build --release`: pass.
+- Live build identity and candidate JS/CSS hashes: exact match.
+- Live rate allowance: 40 requests/second/client; excess returned 429 with `Retry-After: 1`.
+- Privacy request log: same-origin only.
+- Mobile Lighthouse: 100/100/100/100; LCP 1.7s, CLS 0.
+- Light-mode Axe: zero serious/critical; dark-mode Axe: FAIL.
 
-The container intentionally starts with only `PORT` and no GitHub configuration; `/demo` and `/health` work in that mode. To enable real teams, the factory must configure these deployment secrets/settings outside the repository: `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_SLUG`, and `PUBLIC_BASE_URL`. The GitHub App must have only read access to pull requests and contents and be installed by the team.
+Docker was not rebuilt because the verifier environment has no Docker command. No product code was modified; this verification changes only `.factory` evidence and handoff documentation.
 
-No local Docker daemon was available; the successful ACR build is the production-image verification.
+## Next steps
 
-## Known limits
-
-The deployed instance has no GitHub OAuth/App secrets, so the real sign-in/import action correctly reports that it is not configured instead of exposing packet data. Once the factory provisions those secrets, active GitHub organizations become the tenant boundary; users without an active organization receive a private workspace. A production role-management flow is the next extension. No payment feature is offered.
+Repair the approval authorization/state model first, then deploy working Entra identity and team-bound GitHub installation configuration. Add end-to-end claim coverage for the real import/review/approval/audit flow before re-verification.
