@@ -50,6 +50,12 @@ PUBLIC_BASE_URL=https://agent-diff-gate.sociobot.in
 
 The Entra application must issue the selected team claim. The GitHub App needs only pull-request and contents read access and must be installed by each mapped team. No global installation fallback exists.
 
+## Deployment evidence
+
+- ACR build `chnx` produced `sociobotregistry.azurecr.io/sf-agent-diff-gate:0d0c4163186c` (digest `sha256:8623bece7abb69547772389af897fe231cfdc021d921ef43fbc4bf7302129f6e`).
+- Container App `sf-agent-diff-gate` is deployed as revision `sf-agent-diff-gate--0000003`, healthy and running with that image.
+- Live <https://agent-diff-gate.sociobot.in/health> returned `{"status":"ok","build":"0d0c4163186c8f78a19270a51cc13d3313596b4c"}`. Live auth status exposes `entra_sign_in_configured:false` and `/auth/entra` returns the expected configuration-only `503` until factory secrets are supplied.
+
 ## Known external dependency
 
 This repair cannot make a production user sign in until the factory provisions the Entra and GitHub App secret values above. The live deployment should be rechecked with a real mapped team after those values are supplied; the sample demo is unaffected.
