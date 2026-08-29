@@ -57,7 +57,9 @@ Run the commands above before submitting a change.
 
 ## Deploy
 
-Build the image from the root `Dockerfile`. Run `scripts/deploy-production.sh` from an authenticated factory worker.
+Run `scripts/deploy-production.sh` from a clean, committed tree on an authenticated factory worker. This command builds the image and applies the image, one-replica limit, Azure Files mount, and SQLite path in one stateful revision. Do not deploy Diff Gate with the generic container helper because its three-replica, volume-free template is unsafe for SQLite.
+
+The deployment ends by sending 100 concurrent health requests, replacing the revision, and repeating that probe. Both probes must report the committed build and one unchanged durable store identity.
 
 ## Privacy and terms
 

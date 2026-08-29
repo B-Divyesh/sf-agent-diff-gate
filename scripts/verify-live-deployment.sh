@@ -3,20 +3,26 @@ set -eu
 
 base_url=${1:-https://agent-diff-gate.sociobot.in}
 replace=${2:-}
+expected_build=${3:-$(git -C "$(dirname "$0")/.." rev-parse HEAD)}
+expected_image=${4:-}
 app_name=sf-agent-diff-gate
 resource_group=sociobot
 expected_base=https://agent-diff-gate.sociobot.in
+storage_name=agent-diff-gate-data-v4
+repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 
 config=$(az containerapp show --resource-group "$resource_group" --name "$app_name" --output json)
-printf '%s' "$config" | jq -e --arg base "$expected_base" '
-  .properties.configuration.activeRevisionsMode == "Single" and
-  .properties.template.scale.minReplicas == 1 and
-  .properties.template.scale.maxReplicas == 1 and
-  ([.properties.template.volumes[]? | select(.name == "data" and .storageType == "AzureFile")] | length) == 1 and
-  ([.properties.template.containers[] | select(.name == "app") | .volumeMounts[]? | select(.volumeName == "data" and .mountPath == "/data")] | length) == 1 and
-  ([.properties.template.containers[] | select(.name == "app") | .env[]? | select(.name == "DATABASE_URL" and (.value | startswith("sqlite:/data/")))] | length) == 1 and
-  ([.properties.template.containers[] | select(.name == "app") | .env[]? | select(.name == "PUBLIC_BASE_URL" and .value == $base)] | length) == 1
-' >/dev/null
+assert_control_plane() {
+  current=$(az containerapp show --resource-group "$resource_group" --name "$app_name" --output json)
+  if [ -n "$expected_image" ]; then
+    printf '%s' "$current" | node "$repo_dir/deploy/production-contract.mjs" assert \
+      --config "$repo_dir/deploy/production.env.json" --storage "$storage_name" --image "$expected_image"
+  else
+    printf '%s' "$current" | node "$repo_dir/deploy/production-contract.mjs" assert \
+      --config "$repo_dir/deploy/production.env.json" --storage "$storage_name"
+  fi
+}
+assert_control_plane
 
 wait_for_health() {
   for _attempt in $(seq 1 48); do
@@ -31,8 +37,27 @@ wait_for_health() {
 
 before=$(wait_for_health)
 before_id=$(printf '%s' "$before" | jq -r .storage_id)
+test "$(printf '%s' "$before" | jq -r .build)" = "$expected_build"
 before_revision=$(printf '%s' "$config" | jq -r .properties.latestRevisionName)
 "$(dirname "$0")/verify-live-identity.sh" "$base_url"
+
+concurrent_health_identity() {
+  sample_dir=$(mktemp -d)
+  for request in $(seq 1 100); do
+    curl --fail --silent "$base_url/health" >"$sample_dir/$request.json" &
+  done
+  wait
+  jq -s -e --arg build "$expected_build" '
+    length == 100 and
+    (map(.status) | unique) == ["ok"] and
+    (map(.build) | unique) == [$build] and
+    (map(.storage_id) | unique | length) == 1
+  ' "$sample_dir"/*.json >/dev/null
+  jq -s -r 'map(.storage_id) | unique[0]' "$sample_dir"/*.json
+  rm -r "$sample_dir"
+}
+
+test "$(concurrent_health_identity)" = "$before_id"
 
 not_found_headers=$(mktemp)
 trap 'rm -f "$not_found_headers"' EXIT
@@ -55,6 +80,9 @@ if [ "$replace" = "--replace" ]; then
   after=$(wait_for_health)
   after_id=$(printf '%s' "$after" | jq -r .storage_id)
   test "$after_id" = "$before_id"
+  test "$(printf '%s' "$after" | jq -r .build)" = "$expected_build"
+  assert_control_plane
+  test "$(concurrent_health_identity)" = "$before_id"
 fi
 
-printf 'Live deployment contract passed: public Entra callback, one replica, Azure Files /data, and durable replacement identity.\n'
+printf 'Live deployment contract passed: expected build, one concurrent storage identity, public Entra callback, one replica, Azure Files /data, and durable replacement identity %s.\n' "$before_id"

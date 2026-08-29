@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "test": "vitest run --passWithNoTests && playwright test",
+    "test": "npm run test:unit && playwright test",
+    "test:unit": "node --test unit/*.test.mjs",
     "test:browser": "playwright test",
     "test:live-identity": "./scripts/verify-live-identity.sh",
     "preview": "vite preview --host 0.0.0.0"
