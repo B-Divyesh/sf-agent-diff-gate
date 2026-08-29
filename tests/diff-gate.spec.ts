@@ -5,19 +5,48 @@ const signedOut = { authenticated: false, entra_sign_in_configured: false, githu
 async function mockSignedOut(page: import('@playwright/test').Page) {
   await page.route('**/api/auth/status', route => route.fulfill({ json: signedOut }));
 }
+async function waitForFinalStyles(page: import('@playwright/test').Page) {
+  await expect.poll(() => page.locator('.small-button').first().evaluate(element => {
+    const style = getComputedStyle(element);
+    return `${style.color}/${style.backgroundColor}`;
+  })).toMatch(/rgb\(23, 33, 43\)\/rgb\(247, 201, 72\)/);
+}
 
 test('@claim:sample-sandbox keeps sample data isolated and discards it when demo mode ends', async ({ page }) => {
   const requests:string[]=[]; page.on('request', r=>requests.push(r.url()));
   await page.goto('/demo');
-  await expect(page.getByRole('heading',{name:'See an agent change under review'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'See an agent-authored change under review'})).toBeVisible();
   await expect(page.getByRole('heading',{name:'Add organization-level retention controls'})).toBeVisible();
   await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
   await page.getByRole('button',{name:'Mark reviewed'}).first().click();
   await page.getByRole('link',{name:'Privacy'}).first().click();
   expect(await page.evaluate(() => sessionStorage.getItem('demo:diff-gate'))).toBeNull();
   await page.getByRole('link',{name:'Demo'}).click();
-  await expect(page.getByText('2 owner checks')).toBeVisible();
+  await expect(page.getByText('2 required owner checks')).toBeVisible();
   expect(requests.every(url=>new URL(url).origin==='http://127.0.0.1:4173')).toBeTruthy();
+});
+test('@claim:demo-query-path opens an isolated sample with banner controls and reset', async ({ page }) => {
+  await page.goto('/?demo=1');
+  await expect(page).toHaveTitle('Demo — Diff Gate');
+  await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reset demo' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start for real' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mark reviewed' }).first().click();
+  await expect(page.getByText('1 required owner check')).toBeVisible();
+  await page.getByRole('button', { name: 'Reset demo' }).click();
+  await expect(page.getByText('2 required owner checks')).toBeVisible();
+});
+test('@claim:mobile-first-action keeps the sample action inside the first phone screen', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockSignedOut(page);
+  await page.goto('/');
+  const action = page.getByRole('button', { name: 'Try it with sample data' });
+  const box = await action.boundingBox();
+  expect(box).not.toBeNull();
+  expect((box?.y || 0) + (box?.height || 0)).toBeLessThanOrEqual(844);
+  await action.click();
+  await expect(page).toHaveURL(/\?demo=1$/);
+  await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
 });
 test('@claim:no-third-party-runtime sends no demo data off-origin', async ({ page }) => {
   const requests:string[]=[]; page.on('request', request=>requests.push(request.url()));
@@ -35,6 +64,17 @@ test('@claim:packet-export exports the review packet as JSON', async ({ page }) 
   const file=await download; expect(file.suggestedFilename()).toBe('diff-gate-packet.json');
   expect(await file.createReadStream()).toBeTruthy();
 });
+test('@claim:no-merge-action records a demo decision without calling a code-hosting service', async ({ page }) => {
+  const requests: string[] = [];
+  page.on('request', request => requests.push(request.url()));
+  await page.goto('/?demo=1');
+  await page.getByRole('button', { name: 'Mark reviewed' }).first().click();
+  await page.getByRole('button', { name: 'Mark reviewed' }).first().click();
+  await page.getByRole('button', { name: 'Approve for merge' }).click();
+  await expect(page.getByRole('button', { name: 'Approved' })).toBeDisabled();
+  expect(requests.every(url => new URL(url).origin === 'http://127.0.0.1:4173')).toBeTruthy();
+  await expect(page.getByRole('button', { name: /merge/i })).toHaveCount(0);
+});
 test('keyboard review can resolve every flagged check', async ({ page }) => {
   await page.goto('/demo');
   await page.getByRole('button',{name:'Mark reviewed'}).first().focus(); await page.keyboard.press('Enter');
@@ -46,10 +86,10 @@ test('demo state is isolated in its namespace and reset restores the shipped pac
   await page.goto('/demo');
   await page.getByRole('button',{name:'Mark reviewed'}).first().click();
   await page.reload();
-  await expect(page.getByText('1 owner check')).toBeVisible();
+  await expect(page.getByText('1 required owner check')).toBeVisible();
   expect(await page.evaluate(() => sessionStorage.getItem('demo:diff-gate'))).toContain('Migration found');
   await page.getByRole('button',{name:'Reset demo'}).click();
-  await expect(page.getByText('2 owner checks')).toBeVisible();
+  await expect(page.getByText('2 required owner checks')).toBeVisible();
 });
 
 test('390px mobile view has no horizontal overflow and retains keyboard targets', async ({ page }) => {
@@ -78,12 +118,13 @@ test('loaded demo remains reviewable when the browser goes offline', async ({ pa
   await page.goto('/demo');
   await context.setOffline(true);
   await page.getByRole('button',{name:'Mark reviewed'}).first().click();
-  await expect(page.getByText('1 owner check')).toBeVisible();
+  await expect(page.getByText('1 required owner check')).toBeVisible();
   await context.setOffline(false);
 });
 
 test('demo has no serious or critical axe findings', async ({ page }) => {
   await page.goto('/demo');
+  await waitForFinalStyles(page);
   const results = await new AxeBuilder({ page }).analyze();
   const blocking = results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');
   expect(blocking).toEqual([]);
@@ -95,6 +136,7 @@ test('dark mode has no serious or critical axe findings on every public route', 
   await mockSignedOut(page);
   for (const path of ['/', '/demo', '/privacy', '/terms']) {
     await page.goto(path);
+    if (path === '/demo') await waitForFinalStyles(page);
     const results = await new AxeBuilder({ page }).analyze();
     const blocking = results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');
     expect(blocking, `${path}: ${JSON.stringify(blocking)}`).toEqual([]);
@@ -108,6 +150,7 @@ test('light mode has no serious or critical axe findings on every public route',
   await mockSignedOut(page);
   for (const path of ['/', '/demo', '/privacy', '/terms']) {
     await page.goto(path);
+    if (path === '/demo') await waitForFinalStyles(page);
     const results = await new AxeBuilder({ page }).analyze();
     const blocking = results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');
     expect(blocking, `${path}: ${JSON.stringify(blocking)}`).toEqual([]);
@@ -177,12 +220,12 @@ test('header demo route and browser Back always restore the demo sandbox', async
   await mockSignedOut(page);
   await page.goto('/');
   await page.getByRole('link', { name: 'Demo' }).click();
-  await expect(page).toHaveURL(/\/demo$/);
+  await expect(page).toHaveURL(/\?demo=1$/);
   await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
   await page.getByRole('button', { name: 'Start for real' }).click();
   await expect(page).toHaveURL(/\/$/);
   await page.goBack();
-  await expect(page).toHaveURL(/\/demo$/);
+  await expect(page).toHaveURL(/\?demo=1$/);
   await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
 });
 
@@ -218,34 +261,17 @@ test('every rendered demo control has a 44px minimum target at 390px', async ({ 
   }
 });
 
-test('@claim:sociobot-billing shows the documented monthly plans and verifies a restored Sociobot license', async ({ page }) => {
-  let verified = false;
+test('public routes set their own plain-language title, canonical URL, and focused h1', async ({ page }) => {
   await mockSignedOut(page);
-  await page.route('https://api.sociobot.in/api/v1/products/agent-diff-gate/verify?license=fixture-license', route => {
-    verified = true;
-    return route.fulfill({ json: { valid: true, reason: 'ok' } });
-  });
-  await page.goto('/');
-  await expect(page.getByText('$12 per developer each month or $99 per team each month.')).toBeVisible();
-  await expect(page.getByRole('link', { name: /Choose a Sociobot plan/ })).toHaveAttribute('href', 'https://api.sociobot.in/api/v1/products/agent-diff-gate/checkout');
-  await page.getByText('Restore a paid plan').click();
-  await page.locator('#license-token').fill('fixture-license');
-  await page.getByRole('button', { name: 'Restore plan' }).click();
-  await expect.poll(() => verified).toBeTruthy();
-  await expect(page.getByText('Your Diff Gate plan is active on this device.')).toBeVisible();
-});
-
-test('invalid restored license is cleared and leaves a usable recovery path', async ({ page }) => {
-  await mockSignedOut(page);
-  await page.route('https://api.sociobot.in/api/v1/products/agent-diff-gate/verify?license=invalid-license', route =>
-    route.fulfill({ json: { valid: false, reason: 'invalid' } }),
-  );
-  await page.goto('/');
-  await page.getByText('Restore a paid plan').click();
-  await page.locator('#license-token').fill('invalid-license');
-  await page.getByRole('button', { name: 'Restore plan' }).click();
-  await expect(page.getByText('This license is no longer active. Restore another license or choose a Sociobot plan.')).toBeVisible();
-  await expect(page.getByRole('link', { name: /Choose a Sociobot plan/ })).toBeVisible();
-  await expect(page.locator('#license-token')).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('sb_license:agent-diff-gate'))).toBeNull();
+  for (const expected of [
+    ['/', 'Diff Gate — Review agent-authored changes before merge', '/'],
+    ['/?demo=1', 'Demo — Diff Gate', '/demo'],
+    ['/privacy', 'Privacy — Diff Gate', '/privacy'],
+    ['/terms', 'Terms — Diff Gate', '/terms'],
+  ] as const) {
+    await page.goto(expected[0]);
+    await expect(page).toHaveTitle(expected[1]);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `http://127.0.0.1:4173${expected[2]}`);
+    await expect(page.locator('h1')).toBeFocused();
+  }
 });

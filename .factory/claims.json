@@ -14,6 +14,27 @@
     "sandbox": "fresh browser context at /demo; trigger export and assert a JSON review-packet download"
   },
   {
+    "id": "demo-query-path",
+    "claim": "Opening ?demo=1 loads an isolated sample with reset and start-for-real controls.",
+    "where": "landing action, demo banner, README",
+    "test": "npm run test:browser -- --grep @claim:demo-query-path",
+    "sandbox": "fresh browser context at /?demo=1; mutate the sample, reset it, and assert the shipped packet is restored"
+  },
+  {
+    "id": "mobile-first-action",
+    "claim": "The sample action is visible in the first 390 by 844 phone screen.",
+    "where": "landing first screen",
+    "test": "npm run test:browser -- --grep @claim:mobile-first-action",
+    "sandbox": "390 by 844 fresh browser context; measure the complete primary action before interacting"
+  },
+  {
+    "id": "no-merge-action",
+    "claim": "Diff Gate records a review decision; your team merges code outside Diff Gate.",
+    "where": "landing boundary section",
+    "test": "npm run test:browser -- --grep @claim:no-merge-action",
+    "sandbox": "fresh sample demo; approve after resolving checks, assert the retained decision and that the complete flow makes no off-origin or code-hosting request"
+  },
+  {
     "id": "team-packet-boundary",
     "claim": "Real review packets are visible only to their signed-in team.",
     "where": "real packet sign-in panel and README",
@@ -22,7 +43,7 @@
   },
   {
     "id": "named-approval",
-    "claim": "Only the named owner can approve after every saved check and server-recorded test command and result.",
+    "claim": "Only the required owner can approve after every saved check and server-recorded test command and result.",
     "where": "review packet approval status and README",
     "test": "cargo test approval_rejects_missing_evidence_and_wrong_owner_and_persists_saved_evidence",
     "sandbox": "seeded same-team owner and reviewer sessions; reject a client-forged done flag and wrong owner, save command/result evidence, approve as owner, and assert the server-recorded audit"
@@ -82,13 +103,6 @@
     "where": "README privacy section",
     "test": "npm run test:browser -- --grep @claim:no-third-party-runtime",
     "sandbox": "fresh browser context; record every request during landing, sample launch, evidence change, and export; assert every origin is the product origin"
-  },
-  {
-    "id": "sociobot-billing",
-    "claim": "Plans cost $12 per developer monthly or $99 per team monthly and use Sociobot checkout.",
-    "where": "landing plan section and README",
-    "test": "npm run test:browser -- --grep @claim:sociobot-billing",
-    "sandbox": "fresh browser context; assert both prices and the Sociobot checkout URL, restore a fixture license, and assert the verify request is used"
   },
   {
     "id": "github-file-limit",

@@ -437,6 +437,8 @@ code {
   padding: 7px 10px;
   font-size: 0.78rem;
   background: var(--yellow);
+  color: #17212b;
+  border-color: #17212b;
 }
 .packet-actions {
   border-top: 2px solid var(--ink);
@@ -705,11 +707,8 @@ footer span + span {
   }
   .hero {
     grid-template-columns: 1fr;
-    padding-top: 45px;
+    padding-top: 28px;
     min-height: 0;
-  }
-  .hero-art {
-    order: -1;
   }
   .hero-print {
     height: 255px;

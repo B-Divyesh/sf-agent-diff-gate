@@ -11,7 +11,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-test -x "$binary"
+if [ ! -x "$binary" ]; then
+  if [ "$binary" = "target/release/diff-gate" ]; then
+    printf 'Release binary is absent; building it for the runtime contract check.\n'
+    cargo build --release
+  else
+    printf 'Runtime contract binary is not executable: %s\n' "$binary" >&2
+    exit 1
+  fi
+fi
 env -i PATH="$PATH" PORT="$port" BUILD_SHA=runtime-contract "$binary" >"$log_file" 2>&1 &
 server_pid=$!
 for _attempt in $(seq 1 30); do

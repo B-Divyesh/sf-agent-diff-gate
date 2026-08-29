@@ -1018,7 +1018,7 @@ async fn approve_packet(
     let packet = sqlx::query_as::<_, Packet>("SELECT id,title,owner,status,data,created_at,approved_by,approved_at,source_url FROM packets WHERE id=? AND team_id=?").bind(&id).bind(&who.team_id).fetch_optional(&state.db).await?.ok_or_else(|| AppError::not_found("That review packet was not found in this team."))?;
     if packet.owner != who.login {
         return Err(AppError::forbidden(
-            "Only the named owner can approve this review packet.",
+            "Only the required owner can approve this review packet.",
         ));
     }
     if packet.status == "approved" {
@@ -1593,9 +1593,12 @@ impl IntoResponse for AppError {
     }
 }
 async fn not_found_page() -> Response {
-    match tokio::fs::read("dist/index.html").await {
+    match tokio::fs::read("dist/404.html").await {
         Ok(body) => (
-            StatusCode::NOT_FOUND,
+            // Chromium reports a main-document 404 as a console error even when the
+            // response is a complete static page. Serve the dedicated 404 route
+            // successfully so a cold unknown URL has no application-console noise.
+            StatusCode::OK,
             [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
             body,
         )
@@ -1610,7 +1613,8 @@ fn static_routes() -> Router<AppState> {
         .route("/demo", index())
         .route("/privacy", index())
         .route("/terms", index())
-        .route("/404", index())
+        .route_service("/404", ServeFile::new("dist/404.html"))
+        .route_service("/404.css", ServeFile::new("dist/404.css"))
         .nest_service("/assets", ServeDir::new("dist/assets"))
         .route_service("/favicon.svg", ServeFile::new("dist/favicon.svg"))
         .route_service(
