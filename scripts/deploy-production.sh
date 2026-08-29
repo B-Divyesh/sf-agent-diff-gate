@@ -56,8 +56,7 @@ template=$(printf '%s' "$app" | jq -c \
             {name:"DEPLOYMENT_CONFIG_VERSION",value:"2"}
           ])
       else . end)
-  | .scale.minReplicas = 1
-  | .scale.maxReplicas = 1
+  | .scale = {minReplicas:1,maxReplicas:1}
   | .volumes = ((.volumes // []) | map(select(.name != "data")) + [{name:"data",storageType:"AzureFile",storageName:$storage}])
 ')
 body=$(jq -cn --argjson template "$template" '{properties:{template:$template}}')
