@@ -85,6 +85,7 @@ let auditHistory: AuditEntry[] = [];
 let retentionDays = 90;
 let repositoryPolicies: RepositoryPolicy[] = [];
 let licenseActive = false;
+let licenseNotice = "";
 let offline = !navigator.onLine;
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const esc = (s: string) =>
@@ -182,9 +183,15 @@ async function verifyLicense() {
   if (!token) return;
   licenseActive = true;
   try {
-    const response = await fetch(`${BILLING_BASE}/verify?license=${encodeURIComponent(token)}`);
-    const verdict = await response.json() as { valid?: boolean };
+    const response = await fetch(`${BILLING_BASE}/verify?license=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const verdict = await response.json() as { valid?: boolean; reason?: string };
     licenseActive = verdict.valid === true;
+    if (!licenseActive) {
+      localStorage.removeItem(LICENSE_KEY);
+      licenseNotice = "This license is no longer active. Restore another license or choose a Sociobot plan.";
+    } else {
+      licenseNotice = "";
+    }
   } catch {
     // A cached license remains usable while offline; the free workflow never waits on billing.
   }
@@ -229,8 +236,9 @@ function landing() {
       hero.innerHTML =
         '<img src="/change-control.webp" width="900" height="600" fetchpriority="high" decoding="async" alt="Printed file sheets and review marks arranged across a change-control desk."><b class="art-stamp">CHECK</b>';
   });
+  const licenseRecovery = licenseNotice ? `<p class="status warning" role="status">${esc(licenseNotice)}</p>` : "";
   shell(
-    `<section class="hero"><div class="hero-copy"><p class="eyebrow">Accountable review for agent changes</p><h1 tabindex="-1">Review agent changes before merge</h1><p class="lede">For small software teams who need an owner and evidence before an agent-made change lands.</p><div class="button-row"><button class="primary" id="hero-demo">Try it with sample data</button><span class="after-action">Opens a complete review packet.</span></div><ul class="facts"><li>Sample data stays in this browser.</li><li>Sociobot sign-in limits packets to one team.</li><li>$12 per developer monthly or $99 per team monthly.</li></ul></div><figure class="hero-art"><div class="hero-print" role="img" aria-label="Printed file sheets, a test receipt, and an approval stamp arranged as a review desk."><i class="paper p1"></i><i class="paper p2"></i><i class="receipt"></i><b class="art-stamp">CHECK</b></div><figcaption>Every packet names an owner and records review evidence.</figcaption></figure></section><section class="live-area" aria-labelledby="desk-title"><div class="section-kicker"><p class="eyebrow">Live review desk</p><h2 id="desk-title">Find the merge blockers first</h2></div>${packetUI()}</section><section id="how" class="how" aria-labelledby="how-title"><p class="eyebrow">How it works</p><h2 id="how-title">Make the review decision visible</h2><ol><li><b>Sign in.</b><span>Sociobot Entra identifies the reviewer and team.</span></li><li><b>Set repository policy.</b><span>Name sensitive paths and the owner each path needs.</span></li><li><b>Record the decision.</b><span>Save test evidence and retain the named approval.</span></li></ol></section><section id="pricing" class="pricing" aria-labelledby="pricing-title"><p class="eyebrow">Plans</p><h2 id="pricing-title">Pay for team review</h2><p>$12 per developer each month or $99 per team each month. Sociobot bills the plan; Diff Gate never receives a payment card.</p>${licenseActive ? '<p class="status success" role="status">Your Diff Gate plan is active on this device.</p>' : `<a class="primary link-button" href="${BILLING_BASE}/checkout" rel="external">Choose a Sociobot plan (opens checkout)</a><details><summary>Restore a paid plan</summary><form id="license-form"><label for="license-token">License token</label><div class="license-row"><input id="license-token" required autocomplete="off"><button class="secondary" type="submit">Restore plan</button></div></form></details>`}</section><section class="boundary" aria-labelledby="boundary-title"><h2 id="boundary-title">It does not merge code for you</h2><p>Diff Gate keeps security findings advisory. Your team decides what to change and who approves it.</p></section>`,
+    `<section class="hero"><div class="hero-copy"><p class="eyebrow">Accountable review for agent changes</p><h1 tabindex="-1">Review agent changes before merge</h1><p class="lede">For small software teams who need an owner and evidence before an agent-made change lands.</p><div class="button-row"><button class="primary" id="hero-demo">Try it with sample data</button><span class="after-action">Opens a complete review packet.</span></div><ul class="facts"><li>Sample data stays in this browser.</li><li>Sociobot sign-in limits packets to one team.</li><li>$12 per developer monthly or $99 per team monthly.</li></ul></div><figure class="hero-art"><div class="hero-print" role="img" aria-label="Printed file sheets, a test receipt, and an approval stamp arranged as a review desk."><i class="paper p1"></i><i class="paper p2"></i><i class="receipt"></i><b class="art-stamp">CHECK</b></div><figcaption>Every packet names an owner and records review evidence.</figcaption></figure></section><section class="live-area" aria-labelledby="desk-title"><div class="section-kicker"><p class="eyebrow">Live review desk</p><h2 id="desk-title">Find the merge blockers first</h2></div>${packetUI()}</section><section id="how" class="how" aria-labelledby="how-title"><p class="eyebrow">How it works</p><h2 id="how-title">Make the review decision visible</h2><ol><li><b>Sign in.</b><span>Sociobot Entra identifies the reviewer and team.</span></li><li><b>Set repository policy.</b><span>Name sensitive paths and the owner each path needs.</span></li><li><b>Record the decision.</b><span>Save test evidence and retain the named approval.</span></li></ol></section><section id="pricing" class="pricing" aria-labelledby="pricing-title"><p class="eyebrow">Plans</p><h2 id="pricing-title">Pay for team review</h2><p>$12 per developer each month or $99 per team each month. Sociobot bills the plan; Diff Gate never receives a payment card.</p>${licenseActive ? '<p class="status success" role="status">Your Diff Gate plan is active on this device.</p>' : `${licenseRecovery}<a class="primary link-button" href="${BILLING_BASE}/checkout" rel="external">Choose a Sociobot plan (opens checkout)</a><details${licenseNotice ? " open" : ""}><summary>Restore a paid plan</summary><form id="license-form"><label for="license-token">License token</label><div class="license-row"><input id="license-token" required autocomplete="off"><button class="secondary" type="submit">Restore plan</button></div></form></details>`}</section><section class="boundary" aria-labelledby="boundary-title"><h2 id="boundary-title">It does not merge code for you</h2><p>Diff Gate keeps security findings advisory. Your team decides what to change and who approves it.</p></section>`,
     "Diff Gate home",
     "Diff Gate — Review agent changes before merge",
   );
@@ -532,6 +540,7 @@ function bind() {
       event.preventDefault();
       const token = document.querySelector<HTMLInputElement>("#license-token")!.value.trim();
       if (!token) return;
+      licenseNotice = "";
       localStorage.setItem(LICENSE_KEY, token);
       void verifyLicense();
     });

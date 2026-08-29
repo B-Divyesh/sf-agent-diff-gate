@@ -39,7 +39,7 @@ Before an import, a signed-in team saves a policy for the exact `owner/repositor
 
 Test evidence is not a client-controlled checkbox. The service stores a command, result, signed-in actor, and server timestamp. A client can send a `done` state, but the backend replaces it with the incomplete evidence check until it receives a non-empty command and result.
 
-Each signed-in team can set packet retention from 1 to 3,650 days; the default is 90 days. Cleanup removes expired packets and their audit history at startup, hourly, and before packet reads. A reviewer can also delete a packet and its history immediately. The packet view lists team-scoped audit entries and includes them in the JSON export.
+Each signed-in team can set packet retention from 1 to 3,650 days; the default is 90 days. Expired packets and their audit history are removed according to that setting before packet reads. A reviewer can also delete a packet and its history immediately. The packet view lists team-scoped audit entries and includes them in the JSON export.
 
 For frontend iteration, run `npm run dev` and visit the address Vite prints.
 
@@ -62,9 +62,9 @@ Diff Gate costs **$12 per developer per month** or **$99 per team per month**. T
 
 ## Deploy
 
-The root `Dockerfile` builds the Vite frontend and Rust server. The image listens on `PORT=8080`, has no required environment variables, and serves `/health` with the build SHA. Mount `/data` for durable packet storage.
+The root `Dockerfile` builds the Vite frontend and Rust server. The image starts with `PORT` only and `/health` returns the build SHA plus a non-secret durable store identity. Mount `/data` for durable packet storage.
 
-Run `scripts/deploy-production.sh` from an authenticated factory worker. It uses the container work-order helper, reapplies the approved public Entra settings that helper would otherwise replace, mounts the product's Azure Files `/data` share, and runs the live identity regression. Production uses one replica and SQLite's single-process `unix-none` VFS because Azure Files does not provide SQLite byte-range locking. Administrator-provisioned `GITHUB_APP_PRIVATE_KEY` values must use a Key Vault secret reference. The team self-provisioning flow stores GitHub's generated private App key only in the team-scoped backend database.
+Run `scripts/deploy-production.sh` from an authenticated factory worker. It reapplies the approved public Entra settings after the container helper, mounts the product's Azure Files `/data` share, forces one replica, and verifies the Entra callback plus a real revision replacement with the same durable store identity. Production uses SQLite's single-process `unix-none` VFS because Azure Files does not provide SQLite byte-range locking. Administrator-provisioned `GITHUB_APP_PRIVATE_KEY` values must use a Key Vault secret reference. The team self-provisioning flow stores GitHub's generated private App key only in the team-scoped backend database.
 
 ## Privacy
 

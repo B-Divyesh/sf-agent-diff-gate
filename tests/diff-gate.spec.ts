@@ -60,6 +60,20 @@ test('390px mobile view has no horizontal overflow and retains keyboard targets'
   await expect(page.locator(':focus')).toBeVisible();
 });
 
+test('390px mobile header reflows without clipping at 200% text size', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockSignedOut(page);
+  await page.goto('/');
+  await page.addStyleTag({ content: 'html { font-size: 200%; }' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  for (const link of await page.locator('.site-head nav a').all()) {
+    const box = await link.boundingBox();
+    expect(box).not.toBeNull();
+    expect((box?.x || 0) + (box?.width || 0)).toBeLessThanOrEqual(390);
+  }
+  await expect(page.getByRole('link', { name: 'Privacy' }).first()).toBeVisible();
+});
+
 test('loaded demo remains reviewable when the browser goes offline', async ({ page, context }) => {
   await page.goto('/demo');
   await context.setOffline(true);
@@ -219,4 +233,19 @@ test('@claim:sociobot-billing shows the documented monthly plans and verifies a 
   await page.getByRole('button', { name: 'Restore plan' }).click();
   await expect.poll(() => verified).toBeTruthy();
   await expect(page.getByText('Your Diff Gate plan is active on this device.')).toBeVisible();
+});
+
+test('invalid restored license is cleared and leaves a usable recovery path', async ({ page }) => {
+  await mockSignedOut(page);
+  await page.route('https://api.sociobot.in/api/v1/products/agent-diff-gate/verify?license=invalid-license', route =>
+    route.fulfill({ json: { valid: false, reason: 'invalid' } }),
+  );
+  await page.goto('/');
+  await page.getByText('Restore a paid plan').click();
+  await page.locator('#license-token').fill('invalid-license');
+  await page.getByRole('button', { name: 'Restore plan' }).click();
+  await expect(page.getByText('This license is no longer active. Restore another license or choose a Sociobot plan.')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Choose a Sociobot plan/ })).toBeVisible();
+  await expect(page.locator('#license-token')).toBeVisible();
+  expect(await page.evaluate(() => localStorage.getItem('sb_license:agent-diff-gate'))).toBeNull();
 });

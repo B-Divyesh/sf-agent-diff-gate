@@ -35,6 +35,7 @@ const RETRY_AFTER_SECONDS: &str = "1";
 const SESSION_DAYS: i64 = 14;
 const DEFAULT_RETENTION_DAYS: i64 = 90;
 const MAX_RETENTION_DAYS: i64 = 3650;
+const PRODUCT_PUBLIC_BASE_URL: &str = "https://agent-diff-gate.sociobot.in";
 const SOCIOBOT_TENANT_ID: &str = "35c6fe40-0ec0-46b6-98c6-213ad4de6650";
 const SOCIOBOT_CLIENT_ID: &str = "25c704f4-465a-47af-80ab-2c489466b697";
 const SOCIOBOT_AUTHORITY: &str =
@@ -44,6 +45,7 @@ const SOCIOBOT_AUTHORITY: &str =
 struct AppState {
     db: SqlitePool,
     build: String,
+    storage_id: String,
     limits: Arc<Mutex<HashMap<String, Window>>>,
     identity: EntraConfig,
     github: GithubConfig,
@@ -99,8 +101,9 @@ impl EntraConfig {
                 env::var("ENTRA_CLIENT_ID").unwrap_or_else(|_| SOCIOBOT_CLIENT_ID.into()),
             ),
             tenant_id,
-            public_base: env::var("PUBLIC_BASE_URL")
-                .unwrap_or_else(|_| "http://localhost:8080".into()),
+            // A missing deployment setting must never turn a real Entra sign-in into a
+            // localhost redirect. Local developers can still explicitly use localhost.
+            public_base: configured_public_base(env::var("PUBLIC_BASE_URL").ok().as_deref()),
             team_claim: env::var("ENTRA_TEAM_CLAIM").unwrap_or_else(|_| "oid".into()),
         }
     }
@@ -115,6 +118,13 @@ impl EntraConfig {
     fn callback_url(&self) -> String {
         format!("{}/auth/callback", self.public_base.trim_end_matches('/'))
     }
+}
+fn configured_public_base(value: Option<&str>) -> String {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(PRODUCT_PUBLIC_BASE_URL)
+        .to_string()
 }
 fn sociobot_entra_authority(raw: &str) -> Option<String> {
     let value = raw.trim_end_matches('/');
@@ -135,6 +145,7 @@ fn sociobot_entra_authority(raw: &str) -> Option<String> {
 struct Health {
     status: &'static str,
     build: String,
+    storage_id: String,
 }
 #[derive(Serialize)]
 struct AuthStatus {
@@ -352,6 +363,7 @@ async fn health(State(state): State<AppState>) -> Json<Health> {
     Json(Health {
         status: "ok",
         build: state.build,
+        storage_id: state.storage_id,
     })
 }
 fn cookie_value(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -1671,6 +1683,11 @@ async fn security_headers(request: axum::extract::Request, next: middleware::Nex
     response
 }
 async fn create_schema(db: &SqlitePool) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS runtime_metadata (key TEXT PRIMARY KEY,value TEXT NOT NULL)",
+    )
+    .execute(db)
+    .await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY,name TEXT NOT NULL,created_at TEXT NOT NULL)").execute(db).await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY,team_id TEXT NOT NULL,login TEXT NOT NULL,expires_at TEXT NOT NULL)").execute(db).await?;
     sqlx::query(
@@ -1686,6 +1703,15 @@ async fn create_schema(db: &SqlitePool) -> Result<(), sqlx::Error> {
     sqlx::query("CREATE TABLE IF NOT EXISTS team_settings (team_id TEXT PRIMARY KEY,retention_days INTEGER NOT NULL CHECK(retention_days BETWEEN 1 AND 3650))").execute(db).await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS repository_policies (team_id TEXT NOT NULL,repository TEXT NOT NULL,rules TEXT NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(team_id,repository))").execute(db).await?;
     Ok(())
+}
+async fn durable_storage_id(db: &SqlitePool) -> Result<String, sqlx::Error> {
+    sqlx::query("INSERT OR IGNORE INTO runtime_metadata (key,value) VALUES ('storage_id',?)")
+        .bind(Uuid::new_v4().to_string())
+        .execute(db)
+        .await?;
+    sqlx::query_scalar("SELECT value FROM runtime_metadata WHERE key='storage_id'")
+        .fetch_one(db)
+        .await
 }
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -1718,10 +1744,12 @@ async fn main() -> anyhow::Result<()> {
         .connect(&db_url)
         .await?;
     create_schema(&db).await?;
+    let storage_id = durable_storage_id(&db).await?;
     purge_all_expired_data(&db).await?;
     let state = AppState {
         db,
         build,
+        storage_id,
         limits: Arc::new(Mutex::new(HashMap::new())),
         identity,
         github,
@@ -1763,6 +1791,7 @@ mod tests {
         let state = AppState {
             db: db.clone(),
             build: "test-sha".into(),
+            storage_id: durable_storage_id(&db).await.unwrap(),
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity: EntraConfig::default(),
             github: GithubConfig::default(),
@@ -1783,7 +1812,10 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        assert_eq!(body.as_ref(), br#"{"status":"ok","build":"test-sha"}"#);
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body).unwrap()["build"],
+            "test-sha"
+        );
     }
     #[tokio::test]
     async fn packets_require_an_authenticated_team_session() {
@@ -1990,6 +2022,24 @@ mod tests {
         assert_eq!(github.installation_for("entra:team-b"), None);
         assert!(github.app_ready());
     }
+    #[test]
+    fn missing_public_base_never_redirects_entra_to_localhost() {
+        let identity = EntraConfig {
+            authority: Some(SOCIOBOT_AUTHORITY.into()),
+            client_id: Some(SOCIOBOT_CLIENT_ID.into()),
+            tenant_id: SOCIOBOT_TENANT_ID.into(),
+            public_base: configured_public_base(None),
+            team_claim: "oid".into(),
+        };
+        assert_eq!(
+            identity.callback_url(),
+            "https://agent-diff-gate.sociobot.in/auth/callback"
+        );
+        assert_eq!(
+            configured_public_base(Some("   ")),
+            "https://agent-diff-gate.sociobot.in"
+        );
+    }
     #[tokio::test]
     async fn live_identity_defaults_to_sociobot_and_uses_pkce_without_a_client_secret() {
         let db = SqlitePoolOptions::new()
@@ -2008,6 +2058,7 @@ mod tests {
         let service = app(AppState {
             db,
             build: "identity-regression".into(),
+            storage_id: "identity-fixture".into(),
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity,
             github: GithubConfig::default(),
@@ -2054,6 +2105,28 @@ mod tests {
             .get("code_challenge")
             .is_some_and(|value| value.len() == 43));
         assert!(!query.contains_key("client_secret"));
+    }
+    #[tokio::test]
+    async fn durable_storage_identity_survives_database_reopen() {
+        let path = std::env::temp_dir().join(format!("diff-gate-storage-{}.db", Uuid::new_v4()));
+        let url = format!("sqlite:{}?mode=rwc", path.display());
+        let first = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect(&url)
+            .await
+            .unwrap();
+        create_schema(&first).await.unwrap();
+        let first_id = durable_storage_id(&first).await.unwrap();
+        first.close().await;
+        let replacement = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect(&url)
+            .await
+            .unwrap();
+        create_schema(&replacement).await.unwrap();
+        assert_eq!(durable_storage_id(&replacement).await.unwrap(), first_id);
+        replacement.close().await;
+        std::fs::remove_file(path).unwrap();
     }
     #[tokio::test]
     async fn github_app_manifest_is_read_only_and_bound_to_the_signed_in_team() {
@@ -2140,6 +2213,7 @@ mod tests {
         let state = AppState {
             db,
             build: "fixture".into(),
+            storage_id: "github-fixture".into(),
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity: EntraConfig::default(),
             github: GithubConfig::default(),
@@ -2171,6 +2245,43 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["database-owner", "platform-owner"]
         );
+        server.abort();
+    }
+    #[tokio::test]
+    async fn github_import_rejects_more_than_10000_files() {
+        async fn files() -> Json<Vec<serde_json::Value>> {
+            Json(
+                (0..100)
+                    .map(|index| serde_json::json!({"filename": format!("src/file-{index}.ts")}))
+                    .collect(),
+            )
+        }
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(listener, Router::new().route("/pulls/42/files", get(files)))
+                .await
+                .unwrap();
+        });
+        let (_, db) = test_app().await;
+        let state = AppState {
+            db,
+            build: "limit-fixture".into(),
+            storage_id: "limit-fixture".into(),
+            limits: Arc::new(Mutex::new(HashMap::new())),
+            identity: EntraConfig::default(),
+            github: GithubConfig::default(),
+            http: Client::new(),
+        };
+        let error = github_changed_files(
+            &state,
+            &format!("http://{address}/pulls/42"),
+            "fixture-installation-token",
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.status, StatusCode::BAD_REQUEST);
+        assert!(error.message.contains("more than 10,000"));
         server.abort();
     }
     #[tokio::test]
@@ -2287,6 +2398,74 @@ mod tests {
                 .await
                 .unwrap();
         assert_eq!(remaining, 0);
+    }
+    #[tokio::test]
+    async fn retention_limits_default_and_read_cleanup_are_enforced() {
+        let (service, db) = test_app().await;
+        let future = (Utc::now() + ChronoDuration::days(1)).to_rfc3339();
+        let expired = (Utc::now() - ChronoDuration::days(DEFAULT_RETENTION_DAYS + 1)).to_rfc3339();
+        sqlx::query("INSERT INTO teams (id,name,created_at) VALUES ('team','Team',?)")
+            .bind(&future)
+            .execute(&db)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO sessions (token,team_id,login,expires_at) VALUES ('token','team','owner',?)")
+            .bind(&future)
+            .execute(&db)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at) VALUES ('expired','team','Expired','owner','needs review','{}',?)")
+            .bind(&expired)
+            .execute(&db)
+            .await
+            .unwrap();
+        let request = |body: &'static str| {
+            Request::put("/api/settings")
+                .header("cookie", "diff_gate_session=token")
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(body))
+                .unwrap()
+        };
+        let defaults = service
+            .clone()
+            .oneshot(
+                Request::get("/api/settings")
+                    .header("cookie", "diff_gate_session=token")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let defaults: serde_json::Value =
+            serde_json::from_slice(&to_bytes(defaults.into_body(), usize::MAX).await.unwrap())
+                .unwrap();
+        assert_eq!(defaults["retention_days"], DEFAULT_RETENTION_DAYS);
+        for body in ["{\"retention_days\":0}", "{\"retention_days\":3651}"] {
+            assert_eq!(
+                service
+                    .clone()
+                    .oneshot(request(body))
+                    .await
+                    .unwrap()
+                    .status(),
+                StatusCode::BAD_REQUEST
+            );
+        }
+        let packets = service
+            .oneshot(
+                Request::get("/api/packets")
+                    .header("cookie", "diff_gate_session=token")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(packets.status(), StatusCode::OK);
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM packets WHERE id='expired'")
+            .fetch_one(&db)
+            .await
+            .unwrap();
+        assert_eq!(count, 0);
     }
     #[tokio::test]
     async fn audit_history_is_team_scoped_and_concurrent_approval_reports_conflict() {

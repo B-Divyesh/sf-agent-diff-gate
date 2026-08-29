@@ -89,5 +89,33 @@
     "where": "landing plan section and README",
     "test": "npm run test:browser -- --grep @claim:sociobot-billing",
     "sandbox": "fresh browser context; assert both prices and the Sociobot checkout URL, restore a fixture license, and assert the verify request is used"
+  },
+  {
+    "id": "github-file-limit",
+    "claim": "Imports reject pull requests with more than 10,000 changed files.",
+    "where": "README GitHub import description",
+    "test": "cargo test github_import_rejects_more_than_10000_files",
+    "sandbox": "local GitHub changed-file endpoint returns 100 files on each page; assert Diff Gate stops at the 10,000-file boundary with a clear error"
+  },
+  {
+    "id": "retention-limits-and-cleanup",
+    "claim": "Packet retention defaults to 90 days, accepts 1 through 3,650 days, and removes expired packets before reads.",
+    "where": "README retention description",
+    "test": "cargo test retention_limits_default_and_read_cleanup_are_enforced",
+    "sandbox": "seed an authenticated team with a packet older than 90 days; assert the default, reject 0 and 3,651, then read packets and assert expired data is removed"
+  },
+  {
+    "id": "runtime-port-health",
+    "claim": "The container starts with PORT only and /health returns its build and durable store identities.",
+    "where": "README deploy description",
+    "test": "./scripts/verify-runtime-contract.sh",
+    "sandbox": "release binary launched with a clean environment containing only PATH, PORT, and build identity; assert health response"
+  },
+  {
+    "id": "durable-store-replacement",
+    "claim": "The packet database keeps its durable store identity when a process is replaced.",
+    "where": "README deploy description and production deployment verification",
+    "test": "cargo test durable_storage_identity_survives_database_reopen",
+    "sandbox": "create the SQLite schema in a temporary durable file, close it, reopen it as a replacement process, and assert the same store identity"
   }
 ]
