@@ -1,7 +1,9 @@
 # Independent verification 4 — FAIL
 
-**Candidate:** `586c24f96572fde8b8eef6701fdebb6210670f63`  
-**Live URL:** <https://agent-diff-gate.sociobot.in>  
+**Candidate:** `586c24f96572fde8b8eef6701fdebb6210670f63`
+
+**Live URL:** <https://agent-diff-gate.sociobot.in>
+
 **Verified:** 2026-08-29 UTC from a clean candidate checkout
 
 ## Release decision
