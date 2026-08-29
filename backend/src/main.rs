@@ -173,6 +173,7 @@ struct Health {
 }
 #[derive(Serialize)]
 struct AuthStatus {
+    service_ready: bool,
     authenticated: bool,
     entra_sign_in_configured: bool,
     github_app_setup_available: bool,
@@ -425,6 +426,24 @@ async fn auth_status(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<Json<AuthStatus>, AppError> {
+    // This is the only API read that the public landing page makes. When a
+    // generic deployment loses the required SQLite topology, keep every
+    // stateful route fail-closed but answer this probe without touching the
+    // ephemeral database. That lets the page truthfully show its recovery
+    // state instead of generating a cold-load 503 and console error.
+    let service_ready = state.stateful_production_ready || !is_production_host(&headers);
+    if !service_ready {
+        return Ok(Json(AuthStatus {
+            service_ready: false,
+            authenticated: false,
+            entra_sign_in_configured: false,
+            github_app_setup_available: false,
+            github_app_configured: false,
+            install_url: None,
+            user: None,
+            team: None,
+        }));
+    }
     let _ = purge_expired_transient_rows(&state.db).await;
     let active = session(&state, &headers).await.ok();
     let team_app = if let Some(active) = active.as_ref() {
@@ -436,6 +455,7 @@ async fn auth_status(
         .as_ref()
         .map(|app| github_install_url(&app.app_slug));
     Ok(Json(AuthStatus {
+        service_ready: true,
         authenticated: active.is_some(),
         entra_sign_in_configured: state.identity.ready(),
         github_app_setup_available: true,
@@ -1698,8 +1718,11 @@ async fn stateful_production_guard(
     next: middleware::Next,
 ) -> Response {
     let path = request.uri().path();
+    let anonymous_readiness_probe =
+        request.method() == axum::http::Method::GET && path == "/api/auth/status";
     if is_production_host(request.headers())
         && !state.stateful_production_ready
+        && !anonymous_readiness_probe
         && (path.starts_with("/api/") || path.starts_with("/auth/"))
     {
         return AppError::service_unavailable(
@@ -2021,7 +2044,8 @@ mod tests {
         );
     }
     #[tokio::test]
-    async fn regression_verifier_17_port_only_public_runtime_fails_closed() {
+    async fn regression_verifier_17_port_only_public_runtime_fails_closed_without_breaking_cold_landing(
+    ) {
         // Verification 17 found the candidate running publicly with only PORT,
         // which meant multiple replicas wrote independent ephemeral SQLite
         // stores. Local PORT-only startup remains supported, but that same
@@ -2045,6 +2069,7 @@ mod tests {
         );
 
         let api = app
+            .clone()
             .oneshot(
                 Request::get("/api/auth/status")
                     .header(header::HOST, "agent-diff-gate.sociobot.in")
@@ -2053,7 +2078,22 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(api.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(api.status(), StatusCode::OK);
+        let api_body = to_bytes(api.into_body(), usize::MAX).await.unwrap();
+        let readiness = serde_json::from_slice::<serde_json::Value>(&api_body).unwrap();
+        assert_eq!(readiness["service_ready"], false);
+        assert_eq!(readiness["authenticated"], false);
+
+        let packets = app
+            .oneshot(
+                Request::get("/api/packets")
+                    .header(header::HOST, "agent-diff-gate.sociobot.in")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(packets.status(), StatusCode::SERVICE_UNAVAILABLE);
     }
     #[tokio::test]
     async fn missing_routes_return_the_designed_recovery_view_with_404_status() {

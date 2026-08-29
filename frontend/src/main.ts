@@ -26,6 +26,7 @@ type Auth = {
   authenticated: boolean;
   entra_sign_in_configured: boolean;
   github_app_configured: boolean;
+  service_ready?: boolean;
   install_url?: string;
   user?: string;
   team?: string;
@@ -187,6 +188,8 @@ function shell(content: string, page: string, title: string, description: string
   );
 }
 function realStart() {
+  if (auth.service_ready === false)
+    return `<section class="empty-panel" aria-labelledby="real-title"><p class="eyebrow">Team review</p><h2 id="real-title">Team workspace is temporarily unavailable</h2><p class="status warning" role="status">Diff Gate is preparing its durable review workspace. Try again shortly. The sample demo still works without an account.</p></section>`;
   if (!auth.authenticated)
     return `<section class="empty-panel" aria-labelledby="real-title"><p class="eyebrow">Team review</p><h2 id="real-title">Sign in before reviewing repository changes</h2><p>Packets are visible only to their signed-in team.</p>${auth.entra_sign_in_configured ? '<a class="primary link-button" href="/auth/entra">Sign in with Sociobot</a>' : '<p class="status warning" role="status">Sociobot Entra sign-in is not configured on this deployment. The sample demo still works without an account.</p>'}</section>`;
   const history = packetList.length

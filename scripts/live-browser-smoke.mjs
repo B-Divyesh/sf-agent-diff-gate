@@ -7,6 +7,31 @@ const artifacts = process.env.DIFF_GATE_ARTIFACT_DIR || '.factory/repair-9-artif
 await mkdir(artifacts, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 
+// This is deliberately four independent contexts. The controller observed a
+// successful document followed by a failed /api/auth/status request on every
+// cold page load. A deployment is not accepted until the complete landing
+// request graph is successful and silent each time.
+for (let attempt = 1; attempt <= 4; attempt += 1) {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  const responses = [];
+  const errors = [];
+  page.on('response', response => {
+    if (new URL(response.url()).origin === new URL(base).origin) {
+      responses.push({ path: new URL(response.url()).pathname, status: response.status() });
+    }
+  });
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('pageerror', error => errors.push(error.message));
+  const document = await page.goto(`${base}/`, { waitUntil: 'networkidle' });
+  if (document?.status() !== 200) throw new Error(`cold landing ${attempt} returned ${document?.status()}`);
+  const failures = responses.filter(response => response.status >= 400);
+  if (failures.length || errors.length) {
+    throw new Error(`cold landing ${attempt} had failed resources ${JSON.stringify(failures)} and console errors ${JSON.stringify(errors)}`);
+  }
+  await context.close();
+}
+
 for (const profile of [
   { name: 'desktop', viewport: { width: 1440, height: 1000 }, colorScheme: 'light' },
   { name: 'mobile', viewport: { width: 390, height: 844 }, colorScheme: 'dark', reducedMotion: 'reduce' },

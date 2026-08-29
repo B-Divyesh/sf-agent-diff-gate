@@ -48,6 +48,31 @@ test('@claim:mobile-first-action keeps the sample action inside the first phone 
   await expect(page).toHaveURL(/\?demo=1$/);
   await expect(page.getByText('Demo — sample data, nothing is saved')).toBeVisible();
 });
+test('regression: an unsafe deployed topology returns a clean read-only readiness response on cold landing', async ({ page }) => {
+  const responses: Array<{ path: string; status: number }> = [];
+  const errors: string[] = [];
+  page.on('response', response => {
+    const url = new URL(response.url());
+    if (url.origin === 'http://127.0.0.1:4173') responses.push({ path: url.pathname, status: response.status() });
+  });
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  await page.route('**/api/auth/status', route => route.fulfill({
+    status: 200,
+    json: {
+      service_ready: false,
+      authenticated: false,
+      entra_sign_in_configured: false,
+      github_app_configured: false,
+    },
+  }));
+
+  await page.goto('/', { waitUntil: 'networkidle' });
+
+  await expect(page.getByRole('heading', { name: 'Team workspace is temporarily unavailable' })).toBeVisible();
+  expect(responses.find(response => response.path === '/api/auth/status')).toEqual({ path: '/api/auth/status', status: 200 });
+  expect(responses.every(response => response.status < 400)).toBeTruthy();
+  expect(errors).toEqual([]);
+});
 test('@claim:no-third-party-runtime sends no demo data off-origin', async ({ page }) => {
   const requests:string[]=[]; page.on('request', request=>requests.push(request.url()));
   await mockSignedOut(page);

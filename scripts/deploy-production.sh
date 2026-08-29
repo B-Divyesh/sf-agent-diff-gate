@@ -77,3 +77,4 @@ az rest --method patch \
 wait_for_provisioned
 
 "$repo_dir/scripts/verify-live-deployment.sh" "$public_base" --replace "$source_sha" "$image"
+node "$repo_dir/scripts/live-browser-smoke.mjs" "$public_base"
