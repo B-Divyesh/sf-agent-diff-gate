@@ -14,7 +14,10 @@ for (const profile of [
   const context = await browser.newContext(profile);
   const page = await context.newPage();
   const errors = [];
-  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  let expectedNotFoundNavigation = false;
+  page.on('console', message => {
+    if (message.type() === 'error' && !expectedNotFoundNavigation) errors.push(message.text());
+  });
   page.on('pageerror', error => errors.push(error.message));
   for (const path of ['/', '/demo', '/privacy', '/terms']) {
     await page.goto(`${base}${path}`, { waitUntil: 'networkidle' });
@@ -36,12 +39,17 @@ for (const profile of [
   await page.keyboard.press('Tab');
   if (!(await page.locator(':focus').isVisible())) throw new Error(`${profile.name}: keyboard focus is not visible`);
   await page.screenshot({ path: `${artifacts}/live-${profile.name}.png`, fullPage: true });
-  if (errors.length) throw new Error(`${profile.name} console errors: ${errors.join(' | ')}`);
-  await page.goto(`${base}/missing-release-check`, { waitUntil: 'networkidle' });
+  expectedNotFoundNavigation = true;
+  const missingResponse = await page.goto(`${base}/missing-release-check`, { waitUntil: 'networkidle' });
+  expectedNotFoundNavigation = false;
+  if (missingResponse?.status() !== 404) {
+    throw new Error(`${profile.name}: unknown route returned ${missingResponse?.status()} instead of HTTP 404`);
+  }
   const missingAxe = await new AxeBuilder({ page }).analyze();
   if (missingAxe.violations.some(({ impact }) => impact === 'serious' || impact === 'critical')) {
     throw new Error(`${profile.name}: inaccessible 404 page`);
   }
+  if (errors.length) throw new Error(`${profile.name} console errors: ${errors.join(' | ')}`);
   await context.close();
 }
 

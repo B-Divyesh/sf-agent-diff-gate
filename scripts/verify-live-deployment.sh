@@ -32,6 +32,11 @@ before_id=$(printf '%s' "$before" | jq -r .storage_id)
 before_revision=$(printf '%s' "$config" | jq -r .properties.latestRevisionName)
 "$(dirname "$0")/verify-live-identity.sh" "$base_url"
 
+# The styled recovery document is a real missing-resource response, not a
+# successful SPA fallback. Keep this black-box assertion in release checks.
+not_found_status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$base_url/this-route-does-not-exist")
+test "$not_found_status" = 404
+
 if [ "$replace" = "--replace" ]; then
   probe="durable-$(date +%s)"
   az containerapp update --resource-group "$resource_group" --name "$app_name" \

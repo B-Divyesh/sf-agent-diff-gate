@@ -1595,10 +1595,9 @@ impl IntoResponse for AppError {
 async fn not_found_page() -> Response {
     match tokio::fs::read("dist/404.html").await {
         Ok(body) => (
-            // Chromium reports a main-document 404 as a console error even when the
-            // response is a complete static page. Serve the dedicated 404 route
-            // successfully so a cold unknown URL has no application-console noise.
-            StatusCode::OK,
+            // Keep the recovery document useful to people while accurately telling
+            // browsers, crawlers, and monitors that the requested route is absent.
+            StatusCode::NOT_FOUND,
             [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
             body,
         )
@@ -1820,6 +1819,25 @@ mod tests {
             serde_json::from_slice::<serde_json::Value>(&body).unwrap()["build"],
             "test-sha"
         );
+    }
+    #[tokio::test]
+    async fn unknown_routes_return_the_designed_recovery_page_with_404_status() {
+        let (app, _) = test_app().await;
+        let response = app
+            .oneshot(
+                Request::get("/this-route-does-not-exist")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            response.headers()[header::CONTENT_TYPE],
+            "text/html; charset=utf-8"
+        );
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        assert!(String::from_utf8_lossy(&body).contains("This review desk is empty"));
     }
     #[tokio::test]
     async fn packets_require_an_authenticated_team_session() {

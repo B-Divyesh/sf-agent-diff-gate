@@ -1,53 +1,53 @@
-# Diff Gate handoff — polish 1
+# Diff Gate handoff — 404 repair
 
-## Independent verification 9 — FAIL (2026-08-29 UTC)
+## What changed
 
-Candidate `22eb3d32439685f5e2911553e3cb47fdf995ee6d` is live at <https://agent-diff-gate.sociobot.in>; `/health` returned that exact build and the served JS SHA-256 matched a fresh local candidate build. All 19 declared claim commands, the full 21-test Playwright suite, 18 Rust tests, type check, format, clippy, production Vite build, live demo flow, Axe, mobile, privacy-request, header/cache, Entra-redirect, and rate-limit checks passed. The observed API allowance is 40 requests/client/second; the 41st+ concurrent request returned `429 Retry-After: 1`.
+Repair commit replaces the static fallback's incorrect `200 OK` with `404 Not Found` while retaining the complete styled recovery page, its accessible recovery link, and its existing CSP-compatible assets. Known SPA routes (`/`, `/demo`, `/privacy`, and `/terms`), `/health` build identity, the demo sandbox, the Sociobot Entra boundary, and the 40-request-per-client-per-second API allowance are unchanged.
 
-**Release decision: FAIL.** Unknown URLs return the styled 404 screen with HTTP 200. This is a high-severity release-blocking routing defect: nonexistent resources must return HTTP 404. See `.factory/verification-9.md` for exact commands, evidence, constraints (no Docker or Azure CLI in this verifier container), and the required repair.
+Regression coverage now exists at three levels:
 
-## Shipped
+- Rust route test `unknown_routes_return_the_designed_recovery_page_with_404_status` asserts an arbitrary unknown path responds with `404`, HTML content type, and the designed “This review desk is empty” page.
+- `scripts/live-browser-smoke.mjs` asserts the browser navigation response for an unknown route is exactly `404`, while treating the expected navigation status separately from application console failures.
+- `scripts/verify-live-deployment.sh` performs a black-box `curl` assertion that an unknown production path is exactly `404` before declaring a deployment valid.
 
-Commit `17e2b6de6ef77a0105ae28aea1c8808ae628e6b0` is deployed to https://agent-diff-gate.sociobot.in. It closes every finding in `.factory/review-1.md`.
+## Local verification
 
-- The first 390×844 screen shows the plain-language job, audience, and **Try it with sample data** action before the artwork.
-- `/?demo=1` is a one-click isolated sample path with persistent **Demo — sample data, nothing is saved**, **Reset demo**, and **Start for real** controls.
-- The unprovisioned checkout and all paid-plan claims were removed. The core review workflow is not gated.
-- Public claims are recorded in `.factory/claims.json`; the review, legal, README, title, routing, and terminology copy only makes tested statements.
-- The styled 404 is a standalone CSP-compatible document. Public routes have focused h1s, route-specific titles and metadata, canonical URLs, legal links, and no live console messages.
-- Review and secondary controls have explicit compliant foregrounds. The dithered print identity, self-hosted artwork, and reduced-motion treatment remain intact.
-
-## Verification
-
-From a clean clone at `/tmp/diff-gate-clean-DCLZdl`:
+The clean build sequence completed on 2026-08-29 UTC:
 
 ```sh
 npm ci
 npx tsc --noEmit
 npm run build
-npm test                 # 21 Playwright tests passed
-cargo fmt --check
-cargo test               # 18 tests passed
-cargo clippy -- -D warnings
-# every command in .factory/claims.json, including runtime-port-health
+cargo build --release
 ```
 
-Every declared claim command passed from that clean clone. The runtime contract now builds its missing release binary itself and passed with `PORT` only.
+Vite produced `dist/` with 21.41 kB JavaScript (6.99 kB gzip) and 12.23 kB CSS (3.62 kB gzip). The compiled release server was run with an isolated SQLite database; `GET /does-not-exist` returned **HTTP 404** and the expected recovery-page heading.
 
-Deployment used `./scripts/deploy-production.sh`. Live `/health` returned build `17e2b6de6ef77a0105ae28aea1c8808ae628e6b0`. A cold Chromium pass against `/`, `/?demo=1`, `/privacy`, `/terms`, and `/does-not-exist` found zero console messages and zero serious/critical Axe violations. The mobile primary action ended at y=588.5 within the 844px viewport. Evidence is in `.factory/polish-1-artifacts/`, especially `live-check.json`.
-
-The build output is 21.41 kB JS (6.99 kB gzip) and 12.23 kB CSS (3.62 kB gzip). The remote ACR container build completed successfully as part of deployment.
-
-## Run
+The following all passed:
 
 ```sh
-npm ci
-npm run build
-cargo run
+npm test                 # 21 Playwright tests: browser, mobile, keyboard, Axe, privacy, and offline demo
+cargo fmt --check
+cargo test               # 19 Rust tests, including the 404 and 40-request rate-limit assertions
+cargo clippy -- -D warnings
+./scripts/verify-runtime-contract.sh
+node --check scripts/live-browser-smoke.mjs
+sh -n scripts/verify-live-deployment.sh
 ```
 
-Open `http://localhost:8080/?demo=1` for the isolated sample.
+Every exact command listed in `.factory/claims.json` was also rerun successfully. Offline update/service-worker checks do not apply: this backend-served web product makes no PWA offline-reload/update claim; the shipped offline demo interaction is covered by Playwright.
+
+## Deploy and live verification
+
+Deploy with:
+
+```sh
+./scripts/deploy-production.sh
+node scripts/live-browser-smoke.mjs https://agent-diff-gate.sociobot.in
+```
+
+The deployment script uses the container configuration, preserves the single Azure Files-backed `/data` replica, checks the live Sociobot Entra redirect and durable storage identity, and now enforces the exact unknown-route status `404`.
 
 ## Known gaps
 
-None. A paid plan is intentionally not advertised until the factory provisions a working Sociobot product endpoint and a meaningful paid capability.
+None. Docker is not installed in this worker image, so the local Docker command could not be run; the release binary build completed locally and the configured remote container build runs during deployment.
