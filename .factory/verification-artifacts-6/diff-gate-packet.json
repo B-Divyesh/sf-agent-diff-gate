@@ -1,0 +1,32 @@
+{
+  "title": "Add organization-level retention controls",
+  "owner": "Mira Chen",
+  "source": "PR #482 · agent-authored",
+  "changed": [
+    "src/policy/retention.ts",
+    "db/migrations/20260828_retention.sql",
+    "src/api/export.ts"
+  ],
+  "checks": [
+    {
+      "label": "Contract changed",
+      "detail": "Export API now returns retention state.",
+      "state": "ready"
+    },
+    {
+      "label": "Migration found",
+      "detail": "Adds retention_days and backfills 14,382 rows.",
+      "state": "done"
+    },
+    {
+      "label": "Test evidence",
+      "detail": "pnpm test: 214 passed · migration check: passed",
+      "state": "ready"
+    },
+    {
+      "label": "Risky path",
+      "detail": "db/migrations requires database owner sign-off.",
+      "state": "done"
+    }
+  ]
+}
