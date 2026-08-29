@@ -1,0 +1,191 @@
+CLAIM_TEST_BEGIN 1 id=sample-sandbox cmd=npm run test:browser -- --grep @claim:sample-sandbox
+
+> agent-diff-gate@0.1.0 test:browser
+> playwright test --grep @claim:sample-sandbox
+
+[1A[2K[WebServer] (node:4343) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 1 test using 1 worker
+
+[1A[2K(node:4362) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:4362) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/1] tests/diff-gate.spec.ts:9:1 › @claim:sample-sandbox keeps sample data isolated and discards it when demo mode ends
+[1A[2K  1 passed (4.3s)
+CLAIM_TEST_END 1 id=sample-sandbox exit=0
+CLAIM_TEST_BEGIN 2 id=packet-export cmd=npm run test:browser -- --grep @claim:packet-export
+
+> agent-diff-gate@0.1.0 test:browser
+> playwright test --grep @claim:packet-export
+
+[1A[2K[WebServer] (node:4470) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 1 test using 1 worker
+
+[1A[2K(node:4488) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:4488) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/1] tests/diff-gate.spec.ts:32:1 › @claim:packet-export exports the review packet as JSON
+[1A[2K  1 passed (3.8s)
+CLAIM_TEST_END 2 id=packet-export exit=0
+CLAIM_TEST_BEGIN 3 id=team-packet-boundary cmd=cargo test packet_reads_and_approvals_are_scoped_to_the_signed_in_team
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.38s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 1 test
+test tests::packet_reads_and_approvals_are_scoped_to_the_signed_in_team ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.02s
+
+CLAIM_TEST_END 3 id=team-packet-boundary exit=0
+CLAIM_TEST_BEGIN 4 id=named-approval cmd=cargo test approval_rejects_missing_evidence_and_wrong_owner_and_persists_saved_evidence
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 1 test
+test tests::approval_rejects_missing_evidence_and_wrong_owner_and_persists_saved_evidence ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.03s
+
+CLAIM_TEST_END 4 id=named-approval exit=0
+CLAIM_TEST_BEGIN 5 id=entra-team-installation cmd=cargo test entra_and_github_installations_are_configured_per_team
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 1 test
+test tests::entra_and_github_installations_are_configured_per_team ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+CLAIM_TEST_END 5 id=entra-team-installation exit=0
+CLAIM_TEST_BEGIN 6 id=github-complete-import cmd=cargo test github_import_paginates_and_classifies_all_changed_paths
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 1 test
+test tests::github_import_paginates_and_classifies_all_changed_paths ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.01s
+
+CLAIM_TEST_END 6 id=github-complete-import exit=0
+CLAIM_TEST_BEGIN 7 id=github-app-provisioning cmd=cargo test github_app_manifest_is_read_only_and_bound_to_the_signed_in_team
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 1 test
+test tests::github_app_manifest_is_read_only_and_bound_to_the_signed_in_team ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.02s
+
+CLAIM_TEST_END 7 id=github-app-provisioning exit=0
+CLAIM_TEST_BEGIN 8 id=repository-policy cmd=cargo test repository_policy_is_team_scoped_and_requires_its_own_paths_and_owner
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 1 test
+test tests::repository_policy_is_team_scoped_and_requires_its_own_paths_and_owner ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.02s
+
+CLAIM_TEST_END 8 id=repository-policy exit=0
+CLAIM_TEST_BEGIN 9 id=retention-deletion cmd=cargo test retention_and_explicit_deletion_remove_packets_and_audit
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 1 test
+test tests::retention_and_explicit_deletion_remove_packets_and_audit ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.02s
+
+CLAIM_TEST_END 9 id=retention-deletion exit=0
+CLAIM_TEST_BEGIN 10 id=audit-history cmd=cargo test audit_history_is_team_scoped_and_concurrent_approval_reports_conflict
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 1 test
+test tests::audit_history_is_team_scoped_and_concurrent_approval_reports_conflict ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.03s
+
+CLAIM_TEST_END 10 id=audit-history exit=0
+CLAIM_TEST_BEGIN 11 id=audit-export cmd=npm run test:browser -- --grep @claim:audit-export
+
+> agent-diff-gate@0.1.0 test:browser
+> playwright test --grep @claim:audit-export
+
+[1A[2K[WebServer] (node:4667) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 1 test using 1 worker
+
+[1A[2K(node:4685) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:4685) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/1] tests/diff-gate.spec.ts:104:1 › @claim:audit-export signed-in packet history exposes retention, audit export, and confirmed deletion
+[1A[2K  1 passed (4.6s)
+CLAIM_TEST_END 11 id=audit-export exit=0
+CLAIM_TEST_BEGIN 12 id=no-third-party-runtime cmd=npm run test:browser -- --grep @claim:no-third-party-runtime
+
+> agent-diff-gate@0.1.0 test:browser
+> playwright test --grep @claim:no-third-party-runtime
+
+[1A[2K[WebServer] (node:4798) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 1 test using 1 worker
+
+[1A[2K(node:4816) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:4816) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/1] tests/diff-gate.spec.ts:22:1 › @claim:no-third-party-runtime sends no demo data off-origin
+[1A[2K  1 passed (4.4s)
+CLAIM_TEST_END 12 id=no-third-party-runtime exit=0
+CLAIM_TEST_BEGIN 13 id=sociobot-billing cmd=npm run test:browser -- --grep @claim:sociobot-billing
+
+> agent-diff-gate@0.1.0 test:browser
+> playwright test --grep @claim:sociobot-billing
+
+[1A[2K[WebServer] (node:4929) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 1 test using 1 worker
+
+[1A[2K(node:4947) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:4947) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/1] tests/diff-gate.spec.ts:207:1 › @claim:sociobot-billing shows the documented monthly plans and verifies a restored Sociobot license
+[1A[2K  1 passed (4.0s)
+CLAIM_TEST_END 13 id=sociobot-billing exit=0
+CLAIM_SUMMARY total=13 failures=0

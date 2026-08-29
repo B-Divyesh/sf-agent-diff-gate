@@ -1,0 +1,8 @@
+HTTP/2 200
+content-type: application/json
+date: Sat, 29 Aug 2026 03:54:11 GMT
+access-control-allow-credentials: true
+access-control-allow-origin: https://agent-diff-gate.sociobot.in
+cache-control: no-store
+vary: origin, access-control-request-method, access-control-request-headers
+content-length: 52

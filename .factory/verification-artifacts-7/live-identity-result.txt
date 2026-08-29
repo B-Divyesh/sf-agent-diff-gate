@@ -1,0 +1,2 @@
+npm run test:live-identity
+exit=1 after 30 retries; expected production redirect URI was never observed

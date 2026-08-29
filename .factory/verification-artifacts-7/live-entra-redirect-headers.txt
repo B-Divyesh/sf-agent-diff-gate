@@ -1,0 +1,9 @@
+HTTP/2 307
+location: https://sociobotcustomers.ciamlogin.com/35c6fe40-0ec0-46b6-98c6-213ad4de6650/oauth2/v2.0/authorize?client_id=25c704f4-465a-47af-80ab-2c489466b697&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fauth%2Fcallback&response_type=code&response_mode=query&scope=openid+profile+email&state=[redacted]&nonce=[redacted]&code_challenge=[redacted]&code_challenge_method=S256
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+content-length: 0
+date: Sat, 29 Aug 2026 03:41:55 GMT

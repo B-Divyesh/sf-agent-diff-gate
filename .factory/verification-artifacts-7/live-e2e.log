@@ -1,0 +1,82 @@
+{
+  "invalidLicense": {
+    "status": 200,
+    "feedback": [],
+    "detailsOpen": null,
+    "stored": "qa-invalid-token"
+  },
+  "desktop": {
+    "headline": "Review agent changes before merge",
+    "lede": "For small software teams who need an owner and evidence before an agent-made change lands.",
+    "demoExport": {
+      "changed": 3,
+      "checks": 4
+    },
+    "validation": {
+      "invalid": true,
+      "message": "Please fill out this field.",
+      "focused": true
+    },
+    "consoleErrors": [],
+    "pageErrors": [],
+    "requestOrigins": [
+      "https://agent-diff-gate.sociobot.in",
+      "https://api.sociobot.in"
+    ]
+  },
+  "mobile": {
+    "routes": {
+      "/": {
+        "title": "Diff Gate — Review agent changes before merge",
+        "lang": "en",
+        "h1": 1,
+        "main": 1,
+        "overflow": false,
+        "animations": 0,
+        "axeSeriousCritical": 0
+      },
+      "/demo": {
+        "title": "Demo — Diff Gate",
+        "lang": "en",
+        "h1": 1,
+        "main": 1,
+        "overflow": false,
+        "animations": 0,
+        "axeSeriousCritical": 0
+      },
+      "/privacy": {
+        "title": "Privacy — Diff Gate",
+        "lang": "en",
+        "h1": 1,
+        "main": 1,
+        "overflow": false,
+        "animations": 0,
+        "axeSeriousCritical": 0
+      },
+      "/terms": {
+        "title": "Terms — Diff Gate",
+        "lang": "en",
+        "h1": 1,
+        "main": 1,
+        "overflow": false,
+        "animations": 0,
+        "axeSeriousCritical": 0
+      }
+    },
+    "focus": {
+      "text": "Mark reviewed",
+      "outlineStyle": "solid",
+      "outlineWidth": "3px",
+      "width": 269,
+      "height": 44
+    },
+    "smallTargets": 0,
+    "errors": []
+  },
+  "demoPrivacy": {
+    "origins": [
+      "https://agent-diff-gate.sociobot.in"
+    ],
+    "sameOrigin": true
+  }
+}

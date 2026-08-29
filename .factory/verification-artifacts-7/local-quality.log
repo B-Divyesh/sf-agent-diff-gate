@@ -1,0 +1,428 @@
+CHECK npx tsc --noEmit
+CHECK npm test
+
+> agent-diff-gate@0.1.0 test
+> vitest run --passWithNoTests && playwright test
+
+
+ RUN  v3.2.7 /work/repo/frontend
+
+No test files found, exiting with code 0
+
+include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+[1A[2K[WebServer] (node:5188) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 17 tests using 1 worker
+
+[1A[2K(node:5207) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:5207) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/17] tests/diff-gate.spec.ts:9:1 › @claim:sample-sandbox keeps sample data isolated and discards it when demo mode ends
+[1A[2K[2/17] tests/diff-gate.spec.ts:22:1 › @claim:no-third-party-runtime sends no demo data off-origin
+[1A[2K[3/17] tests/diff-gate.spec.ts:32:1 › @claim:packet-export exports the review packet as JSON
+[1A[2K[4/17] tests/diff-gate.spec.ts:38:1 › keyboard review can resolve every flagged check
+[1A[2K[5/17] tests/diff-gate.spec.ts:45:1 › demo state is isolated in its namespace and reset restores the shipped packet
+[1A[2K[6/17] tests/diff-gate.spec.ts:55:1 › 390px mobile view has no horizontal overflow and retains keyboard targets
+[1A[2K[7/17] tests/diff-gate.spec.ts:63:1 › loaded demo remains reviewable when the browser goes offline
+[1A[2K[8/17] tests/diff-gate.spec.ts:71:1 › demo has no serious or critical axe findings
+[1A[2K[9/17] tests/diff-gate.spec.ts:78:1 › dark mode has no serious or critical axe findings on every public route
+[1A[2K[10/17] tests/diff-gate.spec.ts:91:1 › light mode has no serious or critical axe findings on every public route
+[1A[2K[11/17] tests/diff-gate.spec.ts:104:1 › @claim:audit-export signed-in packet history exposes retention, audit export, and confirmed deletion
+[1A[2K[12/17] tests/diff-gate.spec.ts:148:1 › signed-in teams can start the real GitHub App setup when no installation exists
+[1A[2K[13/17] tests/diff-gate.spec.ts:162:1 › header demo route and browser Back always restore the demo sandbox
+[1A[2K[14/17] tests/diff-gate.spec.ts:175:1 › demo approval is retained after reload once every check is resolved
+[1A[2K[15/17] tests/diff-gate.spec.ts:186:1 › navigation and footer links meet 44px touch targets at 390px
+[1A[2K[16/17] tests/diff-gate.spec.ts:196:1 › every rendered demo control has a 44px minimum target at 390px
+[1A[2K[17/17] tests/diff-gate.spec.ts:207:1 › @claim:sociobot-billing shows the documented monthly plans and verifies a restored Sociobot license
+[1A[2K  17 passed (22.1s)
+CHECK npm run build
+
+> agent-diff-gate@0.1.0 build
+> vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 5 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/index.html                  1.11 kB │ gzip: 0.49 kB
+../dist/assets/index-DP1-EDly.css  12.00 kB │ gzip: 3.58 kB
+../dist/assets/index-CHItNRbc.js   22.65 kB │ gzip: 7.59 kB
+✓ built in 180ms
+CHECK cargo fmt --check
+CHECK cargo clippy --all-targets -- -D warnings
+    Checking libc v0.2.189
+    Checking cfg-if v1.0.4
+    Checking smallvec v1.15.2
+    Checking pin-project-lite v0.2.17
+    Checking futures-core v0.3.34
+    Checking scopeguard v1.2.0
+    Checking lock_api v0.4.14
+    Checking zerofrom v0.1.8
+    Checking itoa v1.0.18
+   Compiling stable_deref_trait v1.2.1
+    Checking bytes v1.12.1
+    Checking yoke v0.8.3
+    Checking once_cell v1.21.4
+    Checking parking_lot_core v0.9.12
+    Checking futures-sink v0.3.34
+    Checking parking_lot v0.12.5
+   Compiling zerovec v0.11.8
+    Checking errno v0.3.14
+    Checking memchr v2.8.3
+    Checking signal-hook-registry v1.4.8
+    Checking tracing-core v0.1.36
+    Checking serde_core v1.0.229
+    Checking socket2 v0.6.5
+    Checking mio v1.2.2
+    Checking tokio v1.53.1
+    Checking log v0.4.34
+    Checking tinystr v0.8.4
+    Checking slab v0.4.12
+   Compiling writeable v0.6.4
+    Checking futures-task v0.3.34
+   Compiling litemap v0.8.3
+    Checking futures-io v0.3.34
+    Checking futures-util v0.3.34
+    Checking icu_locale_core v2.3.0
+    Checking tracing v0.1.44
+    Checking serde v1.0.229
+    Checking potential_utf v0.1.6
+   Compiling zerotrie v0.2.5
+   Compiling utf8_iter v1.0.4
+    Checking zeroize v1.9.0
+    Checking percent-encoding v2.3.2
+    Checking icu_collections v2.3.0
+    Checking rustls-pki-types v1.15.1
+    Checking icu_provider v2.3.1
+    Checking getrandom v0.2.17
+    Checking untrusted v0.9.0
+   Compiling typenum v1.20.1
+   Compiling generic-array v0.14.7
+    Checking ring v0.17.14
+    Checking http v1.5.0
+    Checking icu_properties_data v2.3.0
+    Checking icu_normalizer_data v2.3.0
+    Checking base64 v0.22.1
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+    Checking http-body v1.1.0
+    Checking num-traits v0.2.19
+    Checking form_urlencoded v1.2.2
+    Checking zmij v1.0.23
+   Compiling equivalent v1.0.2
+    Checking serde_json v1.0.151
+    Checking idna_adapter v1.2.2
+    Checking rustls-webpki v0.103.15
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+    Checking futures-channel v0.3.34
+    Checking subtle v2.6.1
+   Compiling foldhash v0.1.5
+   Compiling allocator-api2 v0.2.21
+    Checking tower-service v0.3.3
+   Compiling hashbrown v0.15.5
+    Checking rustls v0.23.43
+   Compiling digest v0.10.7
+   Compiling idna v1.1.0
+   Compiling webpki-roots v1.0.9
+   Compiling crossbeam-utils v0.8.22
+   Compiling crc-catalog v2.5.0
+    Checking try-lock v0.2.5
+   Compiling cpufeatures v0.2.17
+   Compiling hashbrown v0.17.1
+    Checking httpdate v1.0.3
+   Compiling parking v2.2.1
+   Compiling event-listener v5.4.2
+   Compiling indexmap v2.14.0
+   Compiling sha2 v0.10.9
+    Checking want v0.3.1
+   Compiling crc v3.4.0
+   Compiling crossbeam-queue v0.3.13
+   Compiling webpki-roots v0.26.11
+    Checking url v2.5.8
+   Compiling futures-intrusive v0.5.0
+   Compiling hashlink v0.10.0
+   Compiling tokio-stream v0.1.19
+    Checking httparse v1.10.1
+   Compiling either v1.18.0
+   Compiling spin v0.9.9
+   Compiling thiserror v2.0.20
+    Checking sync_wrapper v1.0.2
+    Checking atomic-waker v1.1.2
+   Compiling unicase v2.9.0
+    Checking ryu v1.0.23
+    Checking mime v0.3.17
+    Checking tower-layer v0.3.3
+   Compiling serde_urlencoded v0.7.1
+   Compiling sqlx-core v0.8.6
+   Compiling mime_guess v2.0.5
+    Checking hyper v1.11.1
+   Compiling flume v0.11.1
+   Compiling atoi v2.0.0
+   Compiling futures-executor v0.3.34
+   Compiling libsqlite3-sys v0.30.1
+    Checking http-body-util v0.1.5
+   Compiling time-core v0.1.9
+    Checking ipnet v2.12.1
+   Compiling num-conv v0.2.2
+   Compiling time-macros v0.2.32
+    Checking hyper-util v0.1.20
+   Compiling sqlx-sqlite v0.8.6
+    Checking tower v0.5.3
+    Checking num-integer v0.1.47
+    Checking powerfmt v0.2.0
+    Checking regex-syntax v0.8.11
+    Checking deranged v0.5.8
+   Compiling sqlx-macros-core v0.8.6
+    Checking time v0.3.55
+    Checking regex-automata v0.4.18
+    Checking num-bigint v0.4.8
+    Checking tokio-rustls v0.26.4
+    Checking tokio-util v0.7.19
+    Checking lazy_static v1.5.0
+    Checking bitflags v2.13.1
+    Checking http-range-header v0.4.2
+    Checking tower-http v0.6.11
+    Checking sharded-slab v0.1.7
+    Checking axum-core v0.4.5
+    Checking hyper-rustls v0.27.9
+    Checking simple_asn1 v0.6.4
+    Checking getrandom v0.4.3
+    Checking matchers v0.2.0
+   Compiling sqlx-macros v0.8.6
+    Checking pem v3.0.6
+    Checking tracing-serde v0.2.0
+    Checking tracing-log v0.2.0
+    Checking serde_path_to_error v0.1.20
+    Checking thread_local v1.1.10
+    Checking matchit v0.7.3
+    Checking nu-ansi-term v0.50.3
+    Checking iana-time-zone v0.1.65
+    Checking chrono v0.4.45
+    Checking tracing-subscriber v0.3.23
+    Checking axum v0.7.9
+    Checking jsonwebtoken v9.3.1
+    Checking sqlx v0.8.6
+    Checking uuid v1.26.0
+    Checking reqwest v0.12.28
+    Checking anyhow v1.0.104
+    Checking diff-gate v0.1.0 (/work/repo)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 24s
+CHECK cargo test
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 14 tests
+test tests::approval_rejects_missing_evidence_and_wrong_owner_and_persists_saved_evidence ... ok
+test tests::audit_history_is_team_scoped_and_concurrent_approval_reports_conflict ... ok
+test tests::entra_and_github_installations_are_configured_per_team ... ok
+test tests::github_app_manifest_is_read_only_and_bound_to_the_signed_in_team ... ok
+test tests::github_import_paginates_and_classifies_all_changed_paths ... ok
+test tests::github_urls_are_strict_and_docker_uses_the_unpinned_rust_major ... ok
+test tests::health_reports_the_build_identity ... ok
+test tests::live_identity_defaults_to_sociobot_and_uses_pkce_without_a_client_secret ... ok
+test tests::packet_reads_and_approvals_are_scoped_to_the_signed_in_team ... ok
+test tests::packets_require_an_authenticated_team_session ... ok
+test tests::rate_limit_uses_the_first_forwarded_ip_and_returns_retry_after ... ok
+test tests::repository_policy_is_team_scoped_and_requires_its_own_paths_and_owner ... ok
+test tests::response_policy_distinguishes_hashed_and_stable_assets ... ok
+test tests::retention_and_explicit_deletion_remove_packets_and_audit ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+CHECK cargo build --release
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.47
+   Compiling syn v3.0.4
+   Compiling syn v2.0.119
+   Compiling libc v0.2.189
+   Compiling synstructure v0.13.2
+   Compiling zerofrom-derive v0.1.7
+   Compiling yoke-derive v0.8.2
+   Compiling zerovec-derive v0.11.6
+   Compiling displaydoc v0.2.7
+   Compiling find-msvc-tools v0.1.11
+   Compiling shlex v2.0.1
+   Compiling cc v1.4.4
+   Compiling cfg-if v1.0.4
+   Compiling parking_lot_core v0.9.12
+   Compiling serde_core v1.0.229
+   Compiling smallvec v1.15.2
+   Compiling icu_properties_data v2.3.0
+   Compiling serde v1.0.229
+   Compiling pin-project-lite v0.2.17
+   Compiling icu_normalizer_data v2.3.0
+   Compiling version_check v0.9.5
+   Compiling futures-core v0.3.34
+   Compiling generic-array v0.14.7
+   Compiling serde_derive v1.0.229
+   Compiling scopeguard v1.2.0
+   Compiling lock_api v0.4.14
+   Compiling zerofrom v0.1.8
+   Compiling autocfg v1.5.1
+   Compiling stable_deref_trait v1.2.1
+   Compiling bytes v1.12.1
+   Compiling itoa v1.0.18
+   Compiling yoke v0.8.3
+   Compiling tracing-attributes v0.1.31
+   Compiling once_cell v1.21.4
+   Compiling zmij v1.0.23
+   Compiling futures-sink v0.3.34
+   Compiling parking_lot v0.12.5
+   Compiling zerovec v0.11.8
+   Compiling errno v0.3.14
+   Compiling memchr v2.8.3
+   Compiling serde_json v1.0.151
+   Compiling signal-hook-registry v1.4.8
+   Compiling tracing-core v0.1.36
+   Compiling socket2 v0.6.5
+   Compiling mio v1.2.2
+   Compiling tokio-macros v2.7.2
+   Compiling rustls v0.23.43
+   Compiling tokio v1.53.1
+   Compiling log v0.4.34
+   Compiling crossbeam-utils v0.8.22
+   Compiling thiserror v2.0.20
+   Compiling tinystr v0.8.4
+   Compiling ring v0.17.14
+   Compiling writeable v0.6.4
+   Compiling litemap v0.8.3
+   Compiling futures-io v0.3.34
+   Compiling futures-task v0.3.34
+   Compiling slab v0.4.12
+   Compiling icu_locale_core v2.3.0
+   Compiling futures-util v0.3.34
+   Compiling tracing v0.1.44
+   Compiling potential_utf v0.1.6
+   Compiling zerotrie v0.2.5
+   Compiling thiserror-impl v2.0.20
+   Compiling percent-encoding v2.3.2
+   Compiling zeroize v1.9.0
+   Compiling utf8_iter v1.0.4
+   Compiling icu_collections v2.3.0
+   Compiling rustls-pki-types v1.15.1
+   Compiling icu_provider v2.3.1
+   Compiling num-traits v0.2.19
+   Compiling getrandom v0.2.17
+   Compiling pkg-config v0.3.34
+   Compiling typenum v1.20.1
+   Compiling vcpkg v0.2.15
+   Compiling untrusted v0.9.0
+   Compiling libsqlite3-sys v0.30.1
+   Compiling http v1.5.0
+   Compiling base64 v0.22.1
+   Compiling http-body v1.1.0
+   Compiling icu_normalizer v2.3.0
+   Compiling icu_properties v2.3.0
+   Compiling form_urlencoded v1.2.2
+   Compiling equivalent v1.0.2
+   Compiling idna_adapter v1.2.2
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling rustls-webpki v0.103.15
+   Compiling futures-channel v0.3.34
+   Compiling tower-service v0.3.3
+   Compiling allocator-api2 v0.2.21
+   Compiling subtle v2.6.1
+   Compiling httparse v1.10.1
+   Compiling foldhash v0.1.5
+   Compiling hashbrown v0.15.5
+   Compiling digest v0.10.7
+   Compiling idna v1.1.0
+   Compiling webpki-roots v1.0.9
+   Compiling parking v2.2.1
+   Compiling cpufeatures v0.2.17
+   Compiling hashbrown v0.17.1
+   Compiling httpdate v1.0.3
+   Compiling crc-catalog v2.5.0
+   Compiling try-lock v0.2.5
+   Compiling want v0.3.1
+   Compiling crc v3.4.0
+   Compiling indexmap v2.14.0
+   Compiling sha2 v0.10.9
+   Compiling event-listener v5.4.2
+   Compiling webpki-roots v0.26.11
+   Compiling futures-intrusive v0.5.0
+   Compiling url v2.5.8
+   Compiling crossbeam-queue v0.3.13
+   Compiling hashlink v0.10.0
+   Compiling tokio-stream v0.1.19
+   Compiling either v1.18.0
+   Compiling spin v0.9.9
+   Compiling sync_wrapper v1.0.2
+   Compiling unicase v2.9.0
+   Compiling mime v0.3.17
+   Compiling tower-layer v0.3.3
+   Compiling ryu v1.0.23
+   Compiling atomic-waker v1.1.2
+   Compiling sqlx-core v0.8.6
+   Compiling hyper v1.11.1
+   Compiling serde_urlencoded v0.7.1
+   Compiling mime_guess v2.0.5
+   Compiling flume v0.11.1
+   Compiling atoi v2.0.0
+   Compiling futures-executor v0.3.34
+   Compiling http-body-util v0.1.5
+   Compiling num-conv v0.2.2
+   Compiling time-core v0.1.9
+   Compiling ipnet v2.12.1
+   Compiling rustversion v1.0.23
+   Compiling hyper-util v0.1.20
+   Compiling time-macros v0.2.32
+   Compiling sqlx-sqlite v0.8.6
+   Compiling tower v0.5.3
+   Compiling num-integer v0.1.47
+   Compiling hex v0.4.3
+   Compiling regex-syntax v0.8.11
+   Compiling dotenvy v0.15.7
+   Compiling powerfmt v0.2.0
+   Compiling heck v0.5.0
+   Compiling getrandom v0.4.3
+   Compiling deranged v0.5.8
+   Compiling time v0.3.55
+   Compiling sqlx-macros-core v0.8.6
+   Compiling regex-automata v0.4.18
+   Compiling num-bigint v0.4.8
+   Compiling tokio-rustls v0.26.4
+   Compiling tokio-util v0.7.19
+   Compiling async-trait v0.1.92
+   Compiling anyhow v1.0.104
+   Compiling bitflags v2.13.1
+   Compiling lazy_static v1.5.0
+   Compiling http-range-header v0.4.2
+   Compiling tower-http v0.6.11
+   Compiling sharded-slab v0.1.7
+   Compiling axum-core v0.4.5
+   Compiling hyper-rustls v0.27.9
+   Compiling simple_asn1 v0.6.4
+   Compiling matchers v0.2.0
+   Compiling sqlx-macros v0.8.6
+   Compiling pem v3.0.6
+   Compiling tracing-serde v0.2.0
+   Compiling tracing-log v0.2.0
+   Compiling serde_path_to_error v0.1.20
+   Compiling thread_local v1.1.10
+   Compiling axum-macros v0.4.2
+   Compiling nu-ansi-term v0.50.3
+   Compiling matchit v0.7.3
+   Compiling iana-time-zone v0.1.65
+   Compiling chrono v0.4.45
+   Compiling axum v0.7.9
+   Compiling tracing-subscriber v0.3.23
+   Compiling jsonwebtoken v9.3.1
+   Compiling uuid v1.26.0
+   Compiling sqlx v0.8.6
+   Compiling reqwest v0.12.28
+   Compiling diff-gate v0.1.0 (/work/repo)
+    Finished `release` profile [optimized] target(s) in 5m 19s

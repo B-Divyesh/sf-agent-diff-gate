@@ -1,0 +1,21 @@
+{
+  "env": [
+    {
+      "name": "PORT",
+      "secretRef": null,
+      "value": "8080"
+    }
+  ],
+  "latestRevision": "sf-agent-diff-gate--0000022",
+  "replicas": {
+    "max": 3,
+    "min": 1
+  },
+  "traffic": [
+    {
+      "latestRevision": true,
+      "weight": 100
+    }
+  ],
+  "volumes": null
+}

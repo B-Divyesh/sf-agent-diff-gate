@@ -1,0 +1,19 @@
+TEXT_200_PERCENT {"clientWidth":390,"scrollWidth":466,"bodyWidth":390}
+ROUTE / STATUS 200 TITLE Diff Gate — Review agent changes before merge H1 Review agent changes before merge
+ROUTE /demo STATUS 200 TITLE Demo — Diff Gate H1 See an agent change under review
+ROUTE /privacy STATUS 200 TITLE Privacy — Diff Gate H1 How Diff Gate handles review data
+ROUTE /terms STATUS 200 TITLE Terms — Diff Gate H1 Terms for using Diff Gate
+ROUTE /missing-release-check STATUS 404 TITLE Not found — Diff Gate H1 This review desk is empty
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/#main STATUS 200
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/ STATUS 200
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/demo STATUS 200
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/#how STATUS 200
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/#pricing STATUS 200
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/privacy STATUS 200
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/auth/entra STATUS 307
+EXTERNAL_LINK https://api.sociobot.in/api/v1/products/agent-diff-gate/checkout REL external
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/terms STATUS 200
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/demo#main STATUS 200
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/privacy#main STATUS 200
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/terms#main STATUS 200
+INTERNAL_LINK https://agent-diff-gate.sociobot.in/missing-release-check#main STATUS 404
