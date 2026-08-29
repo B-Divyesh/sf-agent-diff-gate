@@ -1,40 +1,17 @@
-# Diff Gate independent QA handoff — PASS
+# Diff Gate adversarial review handoff — FAIL
 
-**Candidate and live build:** `9d9104b0b72b502cb6e51b7bad204e4c19bce06f`
+This review wrote .factory/review-1.md and this handoff only. It did not modify product code.
 
-**URL:** <https://agent-diff-gate.sociobot.in>
-**Status:** **PASS — independently verified and approved.**
+Verified: fresh 390 px and desktop live visits; first-read, demo, reset, storage, request-log, routing, metadata, visual identity, link, and claim checks. npm run build passed (initial JS gzip: 7.68 kB).
 
-The live `/health` endpoint reports the candidate SHA. All 17 claim commands,
-the full 19-test Playwright suite, 18-test Rust suite, type check, formatting,
-clippy, Vite build, release binary build, and PORT-only runtime contract
-passed. Live QA also passed cold first-read clarity, the one-click sample demo,
-approval/export/reset, privacy request logging, mobile/reduced-motion/keyboard
-use, Axe, headers, cache policy, performance, Sociobot Entra redirect, and API
-rate limiting.
+All declared claim commands were executed. runtime-port-health fails from a clean checkout because its declared script expects an already-built release binary; it passes only after cargo build --release.
 
-Observed live API allowance: **40 requests per client per second**; excess
-requests return `429` and `Retry-After: 1`.
+Blocking findings are F-1-1 through F-1-4 and F-1-8 in the review:
 
-Run locally:
+1. The 390 px initial viewport hides the sample CTA.
+2. The live Sociobot checkout link returns 404; its test only checks the href.
+3. The runtime-health claim command is not clean-clone runnable.
+4. Multiple live/README promises have no exact claims.json entry and observable test.
+5. `npm test` currently fails its light-mode Axe check on three serious contrast violations.
 
-```sh
-npm ci
-npx tsc --noEmit
-npm test
-cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-cargo test
-npm run build
-cargo build --release
-./scripts/verify-runtime-contract.sh
-```
-
-Complete evidence and screenshots: `.factory/verification-8.md` and
-`.factory/verification-artifacts-8/`.
-
-No product defects were found. This disposable verifier had no Docker-compatible
-builder, production Entra credentials, or private GitHub organization. Docker's
-Vite and release-Rust stages were built locally; authenticated provider behavior
-was verified through the live tenant/PKCE redirect and fixture-backed workflow
-tests.
+Minor F-1-5 through F-1-7 cover non-descriptive headings, terminology drift, and a console error on the 404 route. F-1-8 is a blocking accessibility/quality-gate failure.
