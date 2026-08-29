@@ -1,58 +1,41 @@
-# Diff Gate handoff — 404 repair
+# Diff Gate verification handoff — PASS
 
-## What changed
+**Candidate:** `2200fa4875ee6691688da36ea3152ee0884497ae`
+**Live URL:** <https://agent-diff-gate.sociobot.in>
+**Result:** **PASS**
 
-Repair commit replaces the static fallback's incorrect `200 OK` with `404 Not Found` while retaining the complete styled recovery page, its accessible recovery link, and its existing CSP-compatible assets. Known SPA routes (`/`, `/demo`, `/privacy`, and `/terms`), `/health` build identity, the demo sandbox, the Sociobot Entra boundary, and the 40-request-per-client-per-second API allowance are unchanged.
+Independent verification is recorded in `.factory/verification-10.md`.
 
-Regression coverage now exists at three levels:
+## What was verified
 
-- Rust route test `unknown_routes_return_the_designed_recovery_page_with_404_status` asserts an arbitrary unknown path responds with `404`, HTML content type, and the designed “This review desk is empty” page.
-- `scripts/live-browser-smoke.mjs` asserts the browser navigation response for an unknown route is exactly `404`, while treating the expected navigation status separately from application console failures.
-- `scripts/verify-live-deployment.sh` performs a black-box `curl` assertion that an unknown production path is exactly `404` before declaring a deployment valid.
+- Every declared `.factory/claims.json` command passed from a clean checkout after `npm ci` (19 claims).
+- Local quality gates passed: TypeScript check, 21 Playwright tests, production Vite build, Rust format check, 19 Rust tests, Clippy with warnings denied, and the PORT-only runtime contract.
+- The live `/health` build is exactly `2200fa4875ee6691688da36ea3152ee0884497ae`; the live hashed JavaScript matches the candidate build byte-for-byte.
+- The live sample demo passed click and keyboard review, export, approval, reload retention, and reset/exit isolation checks at desktop and 390 px mobile.
+- Live privacy, header, caching, responsive, focus, reduced-motion, Axe, console-error, link, real-404, Entra authority, and rate-limit checks passed.
+- Mobile Lighthouse after local compilation was idle: 99 performance, 100 accessibility, 1.9 s LCP, 0 CLS.
 
-## Local verification
-
-The clean build sequence completed on 2026-08-29 UTC:
+## How to verify
 
 ```sh
 npm ci
 npx tsc --noEmit
+npm test
 npm run build
-cargo build --release
-```
-
-Vite produced `dist/` with 21.41 kB JavaScript (6.99 kB gzip) and 12.23 kB CSS (3.62 kB gzip). The compiled release server was run with an isolated SQLite database; `GET /does-not-exist` returned **HTTP 404** and the expected recovery-page heading.
-
-The following all passed:
-
-```sh
-npm test                 # 21 Playwright tests: browser, mobile, keyboard, Axe, privacy, and offline demo
 cargo fmt --check
-cargo test               # 19 Rust tests, including the 404 and 40-request rate-limit assertions
+cargo test
 cargo clippy -- -D warnings
 ./scripts/verify-runtime-contract.sh
-node --check scripts/live-browser-smoke.mjs
-sh -n scripts/verify-live-deployment.sh
 ```
 
-Every exact command listed in `.factory/claims.json` was also rerun successfully. Offline update/service-worker checks do not apply: this backend-served web product makes no PWA offline-reload/update claim; the shipped offline demo interaction is covered by Playwright.
+For the shipped sandbox, open `https://agent-diff-gate.sociobot.in/demo` or `/?demo=1`; it is isolated and cleared by **Start for real**.
 
-## Deployment and live verification
+## Observed production contract
 
-Commit `88498f738529a724e95ed53a67c03482c04493dd` was pushed to `main` and deployed with `./scripts/deploy-production.sh` on 2026-08-29 UTC. The remote ACR container build succeeded. Live `GET /health` returned that exact build SHA and durable storage id `edddc5da-d5cc-4343-b19f-9ac2c15fc546`.
-
-Production checks all passed:
-
-```sh
-curl --output /dev/null --write-out '%{http_code}' https://agent-diff-gate.sociobot.in/this-route-does-not-exist
-# 404
-./scripts/verify-live-deployment.sh https://agent-diff-gate.sociobot.in
-node scripts/live-browser-smoke.mjs https://agent-diff-gate.sociobot.in
-./scripts/verify-live-identity.sh https://agent-diff-gate.sociobot.in
-```
-
-The deployment contract confirmed the public Sociobot Entra callback, one Azure Files-backed `/data` replica, durable identity, and the new exact 404 assertion. The browser smoke passed desktop and 390px mobile navigation, keyboard focus, serious/critical Axe checks, privacy requests, and the offline demo. The live rate probe made 55 concurrent `/api/auth/status` requests from one forwarded IP: **40 returned 200; 15 returned 429; all 15 limited responses had `Retry-After: 1`**.
+- `/health` returned the candidate build and durable storage identity.
+- One client is limited at 40 requests/second; subsequent requests return `429` with `Retry-After: 1`.
+- Unknown routes return the styled document with `404`, not a successful SPA fallback.
 
 ## Known gaps
 
-None. Docker is not installed in this worker image, so the local Docker command could not be run; the release binary build completed locally and the configured remote container build runs during deployment.
+No product defects were found. A real Entra sign-in and private GitHub App installation were not submitted because no test team account/installation was provided; their live redirect and boundary, plus fixture-backed end-to-end server behavior, were verified.
