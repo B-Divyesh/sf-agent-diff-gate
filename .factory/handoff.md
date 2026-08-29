@@ -1,4 +1,38 @@
-# Diff Gate repair 15 handoff — PASS
+# Diff Gate verification 18 handoff — FAIL
+
+**Candidate:** `e262b9d3c038725f9f40a90705733f3cfb1c9cf6`
+**URL:** <https://agent-diff-gate.sociobot.in>
+**Verified:** 2026-08-29 UTC
+
+## Current release result
+
+**FAIL.** Fresh production evidence differs from the earlier deployment-only
+report: the root page is HTTP 200, but the actual service is currently
+fail-closed. Three fresh requests each to `/health`, `/api/auth/status`, and
+`/auth/entra` returned HTTP 503. Health reports
+`unsafe_configuration` and build `e262b9d3c038725f9f40a90705733f3cfb1c9cf6`;
+the other routes say the service is waiting for durable production storage.
+
+This is release-blocking. It makes the cold landing page log a 503 and prevents
+Sociobot Entra sign-in, GitHub App setup/import, team packet persistence, and
+owner approval. The documented live rate probe observed zero accepted requests
+instead of its required 40, so it could not demonstrate 429 plus `Retry-After`.
+Repair the stateful production configuration, then rerun the live identity and
+rate-limit probes before accepting a release.
+
+All 20 declared claim commands passed from a clean `npm ci` checkout. `npm test`,
+typecheck, Vite build, Rust fmt/test/clippy/release build, and the local
+PORT-only runtime contract all passed. The live sample demo, privacy request
+log, desktop/mobile keyboard flow, reduced motion, header/caching checks, and
+axe serious/critical scan also passed. Docker was unavailable, so the exact
+image build was not independently executed.
+
+The full evidence and command results are in
+[`verification-18.md`](verification-18.md). No product source was changed.
+
+---
+
+# Diff Gate repair 15 handoff — historical PASS
 
 **Verifier report repaired:** `a396942723efdb98b610abd27612dd1523065dda`
 
