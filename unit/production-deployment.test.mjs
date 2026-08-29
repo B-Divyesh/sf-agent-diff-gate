@@ -65,7 +65,7 @@ test('regression: one render atomically installs the image and durable SQLite co
   };
 
   assert.doesNotThrow(() => assertProductionContract(repaired, { image, storageName, runtime }));
-  assert.deepEqual(template.scale, { minReplicas: 1, maxReplicas: 1, cooldownPeriod: 300 });
+  assert.deepEqual(template.scale, { minReplicas: 1, maxReplicas: 1 });
   assert.deepEqual(template.volumes, [{ name: 'data', storageType: 'AzureFile', storageName }]);
   assert.deepEqual(template.containers[0].volumeMounts, [{ volumeName: 'data', mountPath: '/data' }]);
   assert.equal(template.containers[0].image, image);

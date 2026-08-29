@@ -57,7 +57,9 @@ export function renderProductionTemplate(app, { image, storageName, runtime }) {
       volumeMounts: [...retainedMounts, { volumeName: 'data', mountPath: '/data' }],
     };
   });
-  template.scale = { ...(template.scale ?? {}), minReplicas: 1, maxReplicas: 1 };
+  // Azure's read response includes cooldownPeriod and pollingInterval, but the
+  // 2024-03-01 PATCH schema rejects those read-only fields.
+  template.scale = { minReplicas: 1, maxReplicas: 1 };
   template.volumes = [
     ...(template.volumes ?? []).filter(({ name }) => name !== 'data'),
     { name: 'data', storageType: 'AzureFile', storageName },
