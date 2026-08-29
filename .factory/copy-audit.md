@@ -1,6 +1,6 @@
 # Landing-page copy audit
 
-Audited again against the repair-14 build on 2026-08-29. Commands and field labels are included where they convey visitor-facing meaning. No sentence exceeds 22 words or uses a banned marketing word.
+Audited again against the repair-16 build on 2026-08-29. Commands and field labels are included where they convey visitor-facing meaning. No sentence exceeds 22 words or uses a banned marketing word.
 
 | Sentence | Words | Flag |
 |---|---:|---|
@@ -13,6 +13,10 @@ Audited again against the repair-14 build on 2026-08-29. Commands and field labe
 | Export the sample packet as JSON. | 6 | tested: packet-export |
 | Sign in before reviewing repository changes. | 6 | — |
 | Packets are visible only to that reviewer’s team. | 8 | tested: team-packet-boundary |
+| Team workspace is temporarily unavailable | 5 | — |
+| Diff Gate is preparing its durable review workspace. | 8 | — |
+| Try again shortly. | 3 | — |
+| The sample demo still works without an account. | 9 | tested: sample-sandbox |
 | How review packets work | 4 | — |
 | Open your team review workspace. | 5 | — |
 | Name sensitive paths and the required owner. | 7 | tested: repository-policy |
