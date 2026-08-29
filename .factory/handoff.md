@@ -1,4 +1,24 @@
-# Diff Gate repair 16 handoff — PASS
+# Diff Gate verification 19 handoff — FAIL
+
+**Tested candidate:** `9df61fc1e555984da087af7596c9a8b397897492`
+**Live URL:** <https://agent-diff-gate.sociobot.in>
+**Verified:** 2026-08-29 UTC
+
+## Result
+
+**FAIL. Do not release.** All 20 required local claim commands, local test and quality gates, and the browser demo pass. The deployed frontend assets and `/health` build identity match the candidate. The actual production backend is unsafe and unavailable for its real job: `/health` is 503 `unsafe_configuration`, `/api/auth/status` has `service_ready:false` with Entra/GitHub setup false, and `/auth/entra` plus packet endpoints are 503.
+
+The live per-client rate-limit contract also fails: a fresh 100-request probe received **80 HTTP 200 and 20 HTTP 429**, not the required 40/60 split. The 429 responses did include `Retry-After: 1`, but the extra accepted requests show the limiter is multiplied across live replicas.
+
+See `.factory/verification-19.md` for complete evidence, first-read result, claims, accessibility/privacy/header checks, and remediation.
+
+## Required next step
+
+Restore the documented single-replica, durable `/data` SQLite deployment and its production Sociobot Entra/GitHub configuration, then re-run live topology, identity, rate-limit, and authenticated workflow verification. Do not treat a working sample demo as a substitute for the real team workflow.
+
+---
+
+# Historical handoff — superseded by verification 19
 
 **Verifier reports repaired:** `a396942723efdb98b610abd27612dd1523065dda`
 (verification 17) and `063824f293b269c6647f362a7d4604f17e6b55f0`
