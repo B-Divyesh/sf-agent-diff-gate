@@ -19,7 +19,28 @@ client_id=$(jq -r .ENTRA_CLIENT_ID "$repo_dir/deploy/production.env.json")
 team_claim=$(jq -r .ENTRA_TEAM_CLAIM "$repo_dir/deploy/production.env.json")
 test "$public_base" = https://agent-diff-gate.sociobot.in
 
+wait_for_provisioned() {
+  for attempt in $(seq 1 120); do
+    state=$(az containerapp show --resource-group "$resource_group" --name "$app_name" \
+      --query properties.provisioningState --output tsv 2>/dev/null || true)
+    case "$state" in
+      Succeeded) return 0 ;;
+      Failed|Canceled)
+        printf 'Container App provisioning ended in %s.\n' "$state" >&2
+        return 1
+        ;;
+    esac
+    if [ $((attempt % 12)) -eq 0 ]; then
+      printf 'Waiting for Container App provisioning (state: %s).\n' "${state:-unavailable}"
+    fi
+    sleep 5
+  done
+  printf 'Container App did not finish provisioning within 10 minutes.\n' >&2
+  return 1
+}
+
 /opt/fleet/lib/deploy-container.sh agent-diff-gate "$repo_dir" Dockerfile 8080
+wait_for_provisioned
 
 storage_exists=$(az storage share-rm exists --resource-group "$resource_group" --storage-account "$storage_account" --name "$storage_name" --query exists --output tsv)
 if [ "$storage_exists" != true ]; then
@@ -63,7 +84,9 @@ body=$(jq -cn --argjson template "$template" '{properties:{template:$template}}'
 az rest --method patch \
   --uri "https://management.azure.com/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.App/containerApps/${app_name}?api-version=2024-03-01" \
   --body "$body" --output none
+wait_for_provisioned
 az containerapp revision set-mode --resource-group "$resource_group" --name "$app_name" \
   --mode single --output none
+wait_for_provisioned
 
 "$repo_dir/scripts/verify-live-deployment.sh" "$public_base" --replace
