@@ -1,135 +1,108 @@
-# Diff Gate verification 19 handoff — FAIL
+# Diff Gate repair 17 handoff — PASS
 
-**Tested candidate:** `9df61fc1e555984da087af7596c9a8b397897492`
+**Verifier report repaired:** `34e3033317b4e52716f1749b7ef1a2249046f89c`
+(`.factory/verification-19.md`)
+
+**Repair commit and deployed build:**
+`08bf31a80e033ca952962a608456634e459e39ea`
+
 **Live URL:** <https://agent-diff-gate.sociobot.in>
+
 **Verified:** 2026-08-29 UTC
 
 ## Result
 
-**FAIL. Do not release.** All 20 required local claim commands, local test and quality gates, and the browser demo pass. The deployed frontend assets and `/health` build identity match the candidate. The actual production backend is unsafe and unavailable for its real job: `/health` is 503 `unsafe_configuration`, `/api/auth/status` has `service_ready:false` with Entra/GitHub setup false, and `/auth/entra` plus packet endpoints are 503.
+**PASS.** Verification 19’s two release blockers were reproduced before the
+repair. Live revision `sf-agent-diff-gate--0000073` had only `PORT`, no
+Azure Files volume or `/data` mount, and a one-to-three replica scale. The
+production-contract verifier reported all ten missing durable SQLite and
+public Entra invariants. `/health` returned 503 `unsafe_configuration`; the
+read-only landing readiness response correctly reported `service_ready:false`.
+The verifier had also observed the in-process limiter multiplied across live
+replicas (80 HTTP 200 and 20 HTTP 429 from a 100-request single-client probe).
 
-The live per-client rate-limit contract also fails: a fresh 100-request probe received **80 HTTP 200 and 20 HTTP 429**, not the required 40/60 split. The 429 responses did include `Retry-After: 1`, but the extra accepted requests show the limiter is multiplied across live replicas.
+The repair was deployed through `scripts/deploy-production.sh`, never the
+generic container helper. ACR run `ch18p` built
+`sociobotregistry.azurecr.io/sf-agent-diff-gate:08bf31a80e03` with digest
+`sha256:966cd827490d3471eb6124524979f9f5e528051d87a5047623eb9d4614276b0d`.
+The live Container App is `sf-agent-diff-gate--0000075`, Single revision mode,
+with exactly one replica, one `data` Azure Files volume
+(`agent-diff-gate-data-v4`) mounted at `/data`, and the required durable
+database/public Entra configuration. It reports build `08bf31a…e39ea` and the
+same durable store identity `1da0c91d-ce8d-4ea1-983d-665beebfbe13` before and
+after the deployment script’s deliberate replacement revision.
 
-See `.factory/verification-19.md` for complete evidence, first-read result, claims, accessibility/privacy/header checks, and remediation.
+## Repair and regression coverage
 
-## Required next step
-
-Restore the documented single-replica, durable `/data` SQLite deployment and its production Sociobot Entra/GitHub configuration, then re-run live topology, identity, rate-limit, and authenticated workflow verification. Do not treat a working sample demo as a substitute for the real team workflow.
-
----
-
-# Historical handoff — superseded by verification 19
-
-**Verifier reports repaired:** `a396942723efdb98b610abd27612dd1523065dda`
-(verification 17) and `063824f293b269c6647f362a7d4604f17e6b55f0`
-(verification 18)
-
-**Failed candidate reproduced:** `e262b9d3c038725f9f40a90705733f3cfb1c9cf6`
-
-**Repair source and deployed build:**
-`b5e4f2e9edaa7ab03448fd3d2a8db35817070421`
-
-**Live URL:** <https://agent-diff-gate.sociobot.in>
-
-**Verified:** 2026-08-29 UTC
-
-## Release result
-
-**PASS.** The verification-18 production failure and the controller's newer
-cold-load evidence were reproduced before the repair. The document returned
-200, but each of four fresh browser contexts requested
-`GET /api/auth/status`, received 503, and logged
-`Failed to load resource: the server responded with a status of 503`.
-`/health` and `/auth/entra` were also fail-closed, preventing the required
-Sociobot Entra sign-in and every real team workflow.
-
-The exact request is now a read-only readiness probe. In an unsafe public
-topology, it returns 200 with `service_ready:false` and no database access, so
-the landing page shows a clear workspace-unavailable state without a failed
-resource. All stateful packet and auth routes still return 503 in that unsafe
-condition. In the deployed safe topology it returns
-`service_ready:true`, `entra_sign_in_configured:true`, and signed-out status.
-
-Production was deployed only through `scripts/deploy-production.sh`. ACR run
-`ch17t` built
-`sociobotregistry.azurecr.io/sf-agent-diff-gate:b5e4f2e9edaa` with digest
-`sha256:709c5ac6a4eeefdc76a42662e7cf6b037ca3ff83ba5f344cc677330eea7b16ac`.
-The live Container App is Single revision mode with exactly one replica,
-Azure Files `agent-diff-gate-data-v4` mounted at `/data`, the durable SQLite
-URL, all production public/Entra settings, and deployment-contract version 5.
-The replacement verifier confirmed the one durable store ID
-`1da0c91d-ce8d-4ea1-983d-665beebfbe13` before and after process replacement.
-
-## Repairs and regression coverage
-
-- Preserved fail-closed protection for every stateful API/auth route when the
-  production SQLite contract is absent.
-- Made only anonymous `GET /api/auth/status` a read-only readiness response in
-  that state. It cannot read or write the ephemeral store.
-- Added the `service_ready` contract to the frontend and a plain recovery panel
-  for a temporarily unavailable real team workspace. The one-click demo and
-  signed-in workflow are unchanged.
-- Added a Rust regression that recreates the `PORT`-only public deployment:
-  health and packets return 503, while auth status returns the safe anonymous
-  readiness JSON.
-- Added a browser regression asserting that this readiness response yields a
-  successful cold landing with no failed same-origin resource or console error.
-- Strengthened `scripts/live-browser-smoke.mjs`: four independent cold
-  contexts must each receive a 200 document, no same-origin resource status
-  >=400, and no console/page error. `deploy-production.sh` now runs that check
-  after the topology/replacement verifier.
+- Added an exact verification-19 control-plane fixture for candidate
+  `9df61fc1e555`, revision `0000073`, its PORT-only environment, absent
+  volume/mount, and one-to-three scale.
+- The regression asserts every required deployment-contract error, asserts the
+  verifier’s exact `80` accepted / `20` throttled rate result is rejected, and
+  proves the production template renderer turns that fixture into a safe
+  single-replica Azure Files deployment.
+- Preserved the existing fail-closed behavior for an unsafe public SQLite
+  topology. The real workspace cannot silently use ephemeral, divergent data.
+- Applied the checked stateful deployment workflow, restoring the unavailable
+  production team workspace and the globally enforced 40-request allowance.
 
 ## Local verification
 
 ```text
 npm ci                                                   PASS — 58 packages, 0 vulnerabilities
-npm test                                                 PASS — 8 Node + 25 Playwright tests
+npm test                                                 PASS — 9 Node + 25 Playwright tests
 npx tsc --noEmit                                         PASS
 npm run build                                            PASS — JS 22.86 kB (7.28 kB gzip), CSS 12.23 kB (3.62 kB gzip)
 cargo fmt --all -- --check                               PASS
-cargo test --all                                        PASS — 21 backend tests
+cargo test --all                                         PASS — 21 backend tests
 cargo clippy --all-targets --all-features -- -D warnings PASS
 cargo build --release                                   PASS
 ./scripts/verify-runtime-contract.sh                     PASS — clean PORT-only startup and health identity
 ```
 
-All 20 exact commands in `.factory/claims.json` passed from the clean install.
-This is a web application, not a published library or package, so a consumer
-package check is not applicable. Docker is unavailable locally, but the exact
-multi-stage production image built successfully in ACR from the source archive
-without `.git`.
+All 20 exact commands in `.factory/claims.json` passed from the clean install:
+the seven isolated Playwright demo claims, twelve named Rust integration
+claims, and the PORT-only runtime contract. This is a web application, not a
+published package, so a package-consumer test does not apply.
+
+The exact multi-stage production container build also passed in ACR from a
+source archive excluding `.git`. A local release-binary check passed
+`/opt/fleet/lib/verify-url.sh` and `scripts/live-browser-smoke.mjs`: desktop,
+390×844 mobile, keyboard focus, Axe serious/critical checks, privacy request
+boundaries, and an already-loaded offline demo all passed.
 
 ## Live verification
 
 ```text
-./scripts/verify-live-deployment.sh ... b5e4f2e9... image
-PASS — safe control plane; expected build; one concurrent storage identity;
-       Entra PKCE; 40 accepted + 60 HTTP 429, every rejection Retry-After: 1
+./scripts/verify-live-deployment.sh https://agent-diff-gate.sociobot.in '' \
+  08bf31a80e033ca952962a608456634e459e39ea \
+  sociobotregistry.azurecr.io/sf-agent-diff-gate:08bf31a80e03
+PASS — safe control plane; expected build; one concurrent durable store;
+       Sociobot Entra PKCE; 40 HTTP 200 + 60 HTTP 429 with Retry-After: 1
 
 ./scripts/verify-live-identity.sh https://agent-diff-gate.sociobot.in
-PASS — Sociobot Entra only; authorization-code flow with PKCE S256
+PASS — Sociobot Entra-only authorization-code redirect with PKCE S256
 
-/opt/fleet/lib/verify-url.sh ...
-PASS — HTTPS 200; title; lang=en; one h1; main landmark; complete image alt;
-       zero browser console/page errors
+node scripts/live-browser-smoke.mjs https://agent-diff-gate.sociobot.in
+PASS — desktop and 390px mobile, keyboard, Axe, privacy, and offline demo
+
+/opt/fleet/lib/verify-url.sh https://agent-diff-gate.sociobot.in <temp-dir>
+PASS — HTTPS 200; title; lang=en; one h1; main; image alt; zero browser errors
 ```
 
-The controller regression passed on four fresh public browser contexts. Every
-attempt loaded `/`, its CSS, JS, hero art, and `/api/auth/status` at HTTP 200
-with zero console errors. The full live smoke also passed desktop and 390×844
-mobile, keyboard focus, reduced motion, public routes and 404 recovery,
-offline-after-load demo use, same-origin-only demo traffic, and zero serious or
-critical axe violations. Evidence is in `.factory/repair-16-artifacts/`.
+Live response policy is correct: documents use `no-cache`, hashed JavaScript
+uses `public, max-age=31536000, immutable`, and HSTS, `nosniff`, strict-origin
+referrer policy, and the self-contained CSP with `frame-ancestors 'none'` are
+present. Demo browser traffic was same-origin only; there is no analytics or
+third-party runtime request. Live screenshots are in
+`.factory/repair-17-artifacts/live/`.
 
-Response-policy checks passed: documents/API use `no-cache`, hashed assets use
-one-year immutable caching, anonymous packets return 401, and the designed 404
-has its `not-found` and `noindex` headers. HSTS, `nosniff`, strict-origin
-referrer policy, and the self-contained CSP are present.
+Mobile Lighthouse against the live service (Chrome with `--no-sandbox`):
 
-The local Lighthouse CLI could not attach to the container's Playwright Chrome,
-so no new numeric Lighthouse score is recorded. This is an environment tooling
-gap, not a product failure: the deployed browser smoke, `verify-url`, and Axe
-checks above completed against the live page.
+```text
+Performance 99   Accessibility 100   Best practices 100   SEO 100
+FCP 1.0 s        LCP 1.8 s            CLS 0            TBT 70 ms
+```
 
 ## Run and deploy
 
@@ -146,18 +119,16 @@ cargo build --release
 ./scripts/deploy-production.sh
 ```
 
-Do not use the generic container helper for this SQLite service. It removes the
-durable single-replica topology and Diff Gate will close its real workspace
-until the contract is restored.
+Do not use the generic container helper for this stateful SQLite product. It
+removes the durable one-replica topology; Diff Gate deliberately fails closed
+instead of serving a split workspace.
 
-## Known scope limits
+## Known limits
 
-No signed-in test Entra account or private GitHub organization was available.
-The live anonymous boundary, Entra redirect, durable storage/replacement,
-rate policy, browser/demo workflow, and response policy were exercised
-directly. Authenticated team isolation, GitHub import/pagination, revision
-refresh, required-owner approval, audit conflict, retention, and deletion pass
-their isolated integration claim tests.
-
-Diff Gate does not claim installable PWA or offline reload/update support. Its
-already-loaded sample remains reviewable offline, which passed.
+No authorized test Sociobot Entra account and private GitHub organization were
+available in this worker, so a full signed-in live packet/import completion was
+not safely performed. The live readiness, PKCE redirect, durable replacement,
+rate policy, public/demonstration workflows, and response policy were tested
+directly. Team isolation, GitHub import/pagination, revision refresh,
+owner-only approval, audit conflict, retention, deletion, and GitHub App
+provisioning pass their isolated integration claim tests.
