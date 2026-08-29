@@ -2,7 +2,7 @@
 
 ## Release status
 
-**Code repair complete; live release remains configuration-blocked.** This repair closes the verifier's evidence-integrity, repository-policy, billing UI, and 44px-control findings. The live Container App still cannot complete a real account/import workflow until factory administrators provision the Sociobot Entra External ID client and a GitHub App installation into the approved Key Vault. No credentials were invented or committed.
+**Deployed repair `d53624a2600cd6729b8b25032d69c3f165681766`; live real-work flow remains configuration-blocked.** This repair closes the verifier's evidence-integrity, repository-policy, billing UI, and 44px-control findings. The live Container App still cannot complete a real account/import workflow until factory administrators provision the Sociobot Entra External ID client and a GitHub App installation into the approved Key Vault. No credentials were invented or committed.
 
 ## What changed
 
@@ -46,6 +46,8 @@ Factory administrators must add these Key Vault-backed settings to the Container
 The Entra authority was independently resolved from the public tenant metadata. The client id/secret and GitHub App private key/installation are intentionally not guessed or replaced with unrelated OAuth credentials.
 
 The Sociobot billing endpoint was previously unregistered (`404` in the verifier report). The product now uses only the documented endpoint; factory billing registration is still required for checkout to return a hosted page.
+
+Deployment used `/opt/fleet/lib/deploy-container.sh agent-diff-gate /work/repo Dockerfile 8080`. Azure ACR run `chr1` succeeded at 2026-08-29T00:48:02Z and the live `/health` response reports build `d53624a2600cd6729b8b25032d69c3f165681766`. A live `verify-url.sh` run passed `/` with a 613ms load and zero console/page errors; its desktop/mobile screenshots and JSON are in `.factory/repair-artifacts/live-repair/`. Live `/api/auth/status` continues to return both configuration flags as `false`, and `/auth/entra` returns the expected `503` configuration message. This is the external configuration blocker above, not a fallback identity flow.
 
 ## Run
 
