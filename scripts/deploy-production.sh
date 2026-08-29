@@ -31,7 +31,7 @@ storage_exists=$(az storage share-rm exists --resource-group sociobot --storage-
 if [ "$storage_exists" != true ]; then
   az storage share-rm create --resource-group sociobot --storage-account "$storage_account" --name "$storage_name" --quota 5 --enabled-protocols SMB --output none
 fi
-storage_key=$(az storage account keys list --resource-group sociobot --name "$storage_account" --query '[0].value' --output tsv)
+storage_key=$(az storage account keys list --resource-group sociobot --account-name "$storage_account" --query '[0].value' --output tsv)
 az containerapp env storage set --resource-group sociobot --name factory-env \
   --storage-name "$storage_name" --access-mode ReadWrite \
   --azure-file-account-name "$storage_account" --azure-file-account-key "$storage_key" \
