@@ -22,10 +22,10 @@
   },
   {
     "id": "named-approval",
-    "claim": "Only the named owner can approve after every saved check is resolved.",
+    "claim": "Only the named owner can approve after every saved check and server-recorded test command and result.",
     "where": "review packet approval status and README",
     "test": "cargo test approval_rejects_missing_evidence_and_wrong_owner_and_persists_saved_evidence",
-    "sandbox": "seeded same-team owner and reviewer sessions; reject missing evidence and wrong owner, save evidence, approve as owner, and assert the durable audit"
+    "sandbox": "seeded same-team owner and reviewer sessions; reject a client-forged done flag and wrong owner, save command/result evidence, approve as owner, and assert the server-recorded audit"
   },
   {
     "id": "entra-team-installation",
@@ -36,10 +36,17 @@
   },
   {
     "id": "github-complete-import",
-    "claim": "GitHub imports read every changed-file page and classify contract and migration paths.",
+    "claim": "GitHub imports read every changed-file page and evaluate repository policy paths.",
     "where": "landing facts, how-it-works section, privacy page, and README",
     "test": "cargo test github_import_paginates_and_classifies_all_changed_paths",
-    "sandbox": "local two-page GitHub fixture with 102 changed paths; assert page two is read and its contract and migration paths are both classified"
+    "sandbox": "local two-page GitHub fixture with 102 changed paths; assert page two is read and configured schema and infrastructure policy paths are both evaluated"
+  },
+  {
+    "id": "repository-policy",
+    "claim": "Each team sets its own repository-sensitive paths and required owners.",
+    "where": "signed-in repository policy settings and pull-request import",
+    "test": "cargo test repository_policy_is_team_scoped_and_requires_its_own_paths_and_owner",
+    "sandbox": "two seeded teams; save Acme/Service schema policy for one team, assert the other team cannot read it, and assert exact path matching"
   },
   {
     "id": "retention-deletion",
@@ -68,5 +75,12 @@
     "where": "README privacy section",
     "test": "npm run test:browser -- --grep @claim:no-third-party-runtime",
     "sandbox": "fresh browser context; record every request during landing, sample launch, evidence change, and export; assert every origin is the product origin"
+  },
+  {
+    "id": "sociobot-billing",
+    "claim": "Plans cost $12 per developer monthly or $99 per team monthly and use Sociobot checkout.",
+    "where": "landing plan section and README",
+    "test": "npm run test:browser -- --grep @claim:sociobot-billing",
+    "sandbox": "fresh browser context; assert both prices and the Sociobot checkout URL, restore a fixture license, and assert the verify request is used"
   }
 ]

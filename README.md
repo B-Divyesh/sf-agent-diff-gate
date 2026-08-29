@@ -2,7 +2,7 @@
 
 Review agent changes before merge. Diff Gate is for 3–30 person software teams that need a named owner and review evidence before an agent-authored change lands.
 
-It imports a team-bound GitHub App pull request into a review packet. The packet records every changed-file page, contract and migration checks, saved evidence, and the named owner's approval. It does not write code or merge pull requests.
+It imports a team-bound GitHub App pull request into a review packet. Each repository has its own sensitive-path policy and required owner. The packet records every changed-file page, server-recorded test evidence, and the named owner's approval. It does not write code or merge pull requests.
 
 ## Try it
 
@@ -20,7 +20,7 @@ cargo run
 
 Visit `http://localhost:8080`. The server uses `PORT` (default `8080`) and creates a SQLite database under `/data`. For a local non-container run, set `DATABASE_URL=sqlite:diff-gate.db?mode=rwc` if `/data` is not writable.
 
-The sample demo works with no configuration. Real review packets use Sociobot Entra External ID and a team-bound GitHub App installation:
+The sample demo works with no configuration. Real review packets use only Sociobot Entra External ID and a team-bound GitHub App installation. In the factory deployment, these values come from approved Key Vault-backed Container App secrets; do not put them in the repository or frontend.
 
 ```sh
 ENTRA_AUTHORITY=https://sociobotcustomers.ciamlogin.com/<tenant> \
@@ -32,6 +32,10 @@ PUBLIC_BASE_URL=https://your-host cargo run
 ```
 
 Configure the Entra application to issue the `extension_DiffGateTeam` claim (or set `ENTRA_TEAM_CLAIM` to your assigned team claim). Only an HTTPS authority on `sociobotcustomers.ciamlogin.com` is accepted. The service validates the issuer, audience, and signing key before creating a session. `GITHUB_TEAM_INSTALLATIONS` maps that exact claim value, prefixed with `entra:`, to one installation id. An unmapped team cannot import. Imports read every changed-file page and reject pull requests above 10,000 files.
+
+Before an import, a signed-in team saves a policy for the exact `owner/repository`: one sensitive path rule per line and the person required to approve it. For example, `schema/** | database-owner@example.com`. Imports refuse repositories without a policy, apply only that repository’s rules, and set the matching rule’s required owner as the packet owner. A pull request matching multiple owners is rejected so the team can split the change or align its policy.
+
+Test evidence is not a client-controlled checkbox. The service stores a command, result, signed-in actor, and server timestamp. A client can send a `done` state, but the backend replaces it with the incomplete evidence check until it receives a non-empty command and result.
 
 Each signed-in team can set packet retention from 1 to 3,650 days; the default is 90 days. Cleanup removes expired packets and their audit history at startup, hourly, and before packet reads. A reviewer can also delete a packet and its history immediately. The packet view lists team-scoped audit entries and includes them in the JSON export.
 
@@ -50,9 +54,13 @@ docker run --rm -p 8080:8080 diff-gate
 
 The browser tests cover demo isolation, demo data egress, JSON export, keyboard use, mobile layout, and both color schemes. The Rust suite covers team isolation, named-owner approval, multi-page GitHub import, retention, audit history, response policy, and Sociobot authority restrictions. See `.factory/claims.json` and `.factory/demo.md`.
 
+## Plans
+
+Diff Gate costs **$12 per developer per month** or **$99 per team per month**. The landing page sends checkout and license verification only to the Sociobot billing API; it does not include a payment-provider key. Sociobot is the merchant of record. The free sample, export, privacy controls, and accessibility controls remain available without a paid plan. Buyers can return with `?license=<token>` or restore the token through the plan section.
+
 ## Deploy
 
-The root `Dockerfile` builds the Vite frontend and Rust server. The image listens on `PORT=8080`, has no required environment variables, and serves `/health` with the build SHA. Mount `/data` for durable packet storage.
+The root `Dockerfile` builds the Vite frontend and Rust server. The image listens on `PORT=8080`, has no required environment variables, and serves `/health` with the build SHA. Mount `/data` for durable packet storage. The production Container App adds `ENTRA_*`, `GITHUB_APP_*`, and `GITHUB_TEAM_INSTALLATIONS` as Key Vault secret references, not literal values.
 
 ## Privacy
 

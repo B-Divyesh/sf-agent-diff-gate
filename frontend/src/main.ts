@@ -17,7 +17,10 @@ type Draft = {
   source_url?: string;
   approved_by?: string;
   approved_at?: string;
+  test_evidence?: { command: string; result: string; recorded_by: string; recorded_at: string };
 };
+type PolicyRule = { path: string; required_owner: string };
+type RepositoryPolicy = { repository: string; rules: PolicyRule[] };
 type Auth = {
   authenticated: boolean;
   entra_sign_in_configured: boolean;
@@ -34,6 +37,8 @@ type AuditEntry = {
   created_at: string;
 };
 const DEMO_STORAGE = "demo:diff-gate";
+const BILLING_BASE = "https://api.sociobot.in/api/v1/products/agent-diff-gate";
+const LICENSE_KEY = "sb_license:agent-diff-gate";
 const sample: Draft = {
   title: "Add organization-level retention controls",
   owner: "Mira Chen",
@@ -78,6 +83,8 @@ let auth: Auth = {
 let packetList: Array<{ id: string; title: string; status: string }> = [];
 let auditHistory: AuditEntry[] = [];
 let retentionDays = 90;
+let repositoryPolicies: RepositoryPolicy[] = [];
+let licenseActive = false;
 let offline = !navigator.onLine;
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const esc = (s: string) =>
@@ -138,14 +145,17 @@ async function loadAuth() {
   try {
     auth = await api<Auth>("/api/auth/status");
     if (auth.authenticated) {
-      const [packets, settings] = await Promise.all([
+      const [packets, settings, policies] = await Promise.all([
         api<Array<{ id: string; title: string; status: string }>>("/api/packets"),
         api<{ retention_days: number }>("/api/settings"),
+        api<RepositoryPolicy[]>("/api/repository-policies"),
       ]);
       packetList = packets;
       retentionDays = settings.retention_days;
+      repositoryPolicies = policies;
     } else {
       packetList = [];
+      repositoryPolicies = [];
     }
   } catch {
     auth = {
@@ -154,15 +164,37 @@ async function loadAuth() {
       github_app_configured: false,
     };
     packetList = [];
+    repositoryPolicies = [];
   } finally {
     render();
   }
+}
+function licenseFromUrl() {
+  const url = new URL(location.href);
+  const token = url.searchParams.get("license");
+  if (!token) return;
+  localStorage.setItem(LICENSE_KEY, token);
+  url.searchParams.delete("license");
+  history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+async function verifyLicense() {
+  const token = localStorage.getItem(LICENSE_KEY);
+  if (!token) return;
+  licenseActive = true;
+  try {
+    const response = await fetch(`${BILLING_BASE}/verify?license=${encodeURIComponent(token)}`);
+    const verdict = await response.json() as { valid?: boolean };
+    licenseActive = verdict.valid === true;
+  } catch {
+    // A cached license remains usable while offline; the free workflow never waits on billing.
+  }
+  render();
 }
 function shell(content: string, page: string, title: string) {
   document.title = title;
   document.querySelector<HTMLLinkElement>('link[rel="canonical"]')!.href =
     `${location.origin}${location.pathname}`;
-  app.innerHTML = `<a class="skip" href="#main">Skip to content</a><header class="site-head"><a class="wordmark" href="/" data-nav><span class="mark" aria-hidden="true">≡</span> Diff Gate</a><nav aria-label="Main navigation"><a href="/demo" data-nav>Demo</a><a href="/#how">How it works</a><a href="/privacy" data-nav>Privacy</a></nav></header>${demo ? `<aside class="demo-bar" aria-label="Demo mode"><span><b>Demo</b> — sample data, nothing is saved</span><span><button class="text-button" id="reset-demo">Reset demo</button><button class="text-button" id="start-real">Start for real</button></span></aside>` : ""}<p id="announcer" class="sr-only" aria-live="polite">${page}</p><main id="main" tabindex="-1">${content}</main><footer><span>Diff Gate makes change ownership visible.</span><span><a href="/privacy" data-nav>Privacy</a><a href="/terms" data-nav>Terms</a><span>Built by Param Factory</span></span><small>v0.3.0</small></footer>`;
+  app.innerHTML = `<a class="skip" href="#main">Skip to content</a><header class="site-head"><a class="wordmark" href="/" data-nav><span class="mark" aria-hidden="true">≡</span> Diff Gate</a><nav aria-label="Main navigation"><a href="/demo" data-nav>Demo</a><a href="/#how">How it works</a><a href="/#pricing">Plans</a><a href="/privacy" data-nav>Privacy</a></nav></header>${demo ? `<aside class="demo-bar" aria-label="Demo mode"><span><b>Demo</b> — sample data, nothing is saved</span><span><button class="text-button" id="reset-demo">Reset demo</button><button class="text-button" id="start-real">Start for real</button></span></aside>` : ""}<p id="announcer" class="sr-only" aria-live="polite">${page}</p><main id="main" tabindex="-1">${content}</main><footer><span>Diff Gate makes change ownership visible.</span><span><a href="/privacy" data-nav>Privacy</a><a href="/terms" data-nav>Terms</a><span>Built by Param Factory</span></span><small>v0.4.0</small></footer>`;
   bind();
   requestAnimationFrame(() =>
     document.querySelector<HTMLElement>("h1")?.focus({ preventScroll: true }),
@@ -174,7 +206,8 @@ function realStart() {
   const history = packetList.length
     ? `<section class="packet-history" aria-labelledby="history-title"><h3 id="history-title">Saved review packets</h3><ul>${packetList.map((packet) => `<li><button class="history-link" data-packet="${esc(packet.id)}">${esc(packet.title)} <span>${esc(packet.status)}</span></button></li>`).join("")}</ul></section>`
     : '<p class="status">No saved review packets yet.</p>';
-  return `<section class="empty-panel" aria-labelledby="real-title"><div class="signed-in"><p class="eyebrow">${esc(auth.team || "Team")} · signed in as ${esc(auth.user || "reviewer")}</p><button class="text-button" id="sign-out">Sign out</button></div><h2 id="real-title">Open a real review packet</h2><p>Import a pull request through the team-bound GitHub App, or record a packet by hand.</p><form id="import-form" class="packet-form"><label for="pr-url">GitHub pull request URL</label><div class="license-row"><input id="pr-url" type="url" required placeholder="https://github.com/owner/repo/pull/123"><button class="primary" type="submit">Import pull request</button></div>${auth.github_app_configured ? "" : '<p class="status warning">A GitHub App installation must be bound to this Sociobot team before importing.</p>'}${auth.install_url ? `<a href="${esc(auth.install_url)}" rel="external">Install the GitHub App (opens GitHub)</a>` : ""}</form><form id="blank-form" class="packet-form"><h3>Create a packet by hand</h3><label for="packet-title">Change title</label><input id="packet-title" required maxlength="180"><label for="packet-owner">Responsible owner</label><input id="packet-owner" value="${esc(auth.user || "")}" required><label for="packet-files">Changed files, one per line</label><textarea id="packet-files" rows="3"></textarea><label for="packet-tests">Test evidence</label><textarea id="packet-tests" rows="2" placeholder="Command and result"></textarea><button class="secondary" type="submit">Save review packet</button></form>${history}<form id="retention-form" class="packet-form"><h3>Data retention</h3><label for="retention-days">Delete packets and their audit history after this many days</label><div class="license-row"><input id="retention-days" type="number" min="1" max="3650" required value="${retentionDays}"><button class="secondary" type="submit">Save retention</button></div></form><p id="real-note" class="status" role="status"></p></section>`;
+  const policyList = repositoryPolicies.length ? `<ul class="policy-list">${repositoryPolicies.map((policy) => `<li><strong>${esc(policy.repository)}</strong><span>${policy.rules.map((rule) => `${esc(rule.path)} → ${esc(rule.required_owner)}`).join(" · ")}</span></li>`).join("")}</ul>` : "<p class=\"status\">No repository policies saved yet. Import stays blocked until a policy names risky paths and their owner.</p>";
+  return `<section class="empty-panel" aria-labelledby="real-title"><div class="signed-in"><p class="eyebrow">${esc(auth.team || "Team")} · signed in as ${esc(auth.user || "reviewer")}</p><button class="text-button" id="sign-out">Sign out</button></div><h2 id="real-title">Open a real review packet</h2><p>Set a repository policy, then import a pull request through the team-bound GitHub App.</p><form id="policy-form" class="packet-form"><h3>Repository policy</h3><label for="policy-repository">GitHub repository</label><input id="policy-repository" required placeholder="owner/repository"><label for="policy-rules">Sensitive path and required owner</label><textarea id="policy-rules" rows="3" required placeholder="schema/** | database-owner@example.com&#10;infra/** | platform-owner@example.com"></textarea><p class="status">One rule per line: path, a vertical bar, then the person who must approve.</p><button class="secondary" type="submit">Save repository policy</button></form>${policyList}<form id="import-form" class="packet-form"><h3>Import pull request</h3><label for="pr-url">GitHub pull request URL</label><div class="license-row"><input id="pr-url" type="url" required placeholder="https://github.com/owner/repo/pull/123"><button class="primary" type="submit">Import pull request</button></div>${auth.github_app_configured ? "" : '<p class="status warning">A GitHub App installation must be bound to this Sociobot team before importing.</p>'}${auth.install_url ? `<a href="${esc(auth.install_url)}" rel="external">Install the GitHub App (opens GitHub)</a>` : ""}</form><form id="blank-form" class="packet-form"><h3>Create a packet by hand</h3><label for="packet-title">Change title</label><input id="packet-title" required maxlength="180"><label for="packet-owner">Responsible owner</label><input id="packet-owner" value="${esc(auth.user || "")}" required><label for="packet-files">Changed files, one per line</label><textarea id="packet-files" rows="3"></textarea><label for="packet-tests">Test evidence</label><textarea id="packet-tests" rows="2" placeholder="Command and result"></textarea><button class="secondary" type="submit">Save review packet</button></form>${history}<form id="retention-form" class="packet-form"><h3>Data retention</h3><label for="retention-days">Delete packets and their audit history after this many days</label><div class="license-row"><input id="retention-days" type="number" min="1" max="3650" required value="${retentionDays}"><button class="secondary" type="submit">Save retention</button></div></form><p id="real-note" class="status" role="status"></p></section>`;
 }
 function packetUI() {
   if (!draft) return realStart();
@@ -183,10 +216,11 @@ function packetUI() {
   ).length;
   const immutable = draft.status === "approved";
   const ownerBlocked = !demo && auth.user !== draft.owner;
+  const hasRecordedTestEvidence = Boolean(draft.test_evidence);
   const history = !demo && auditHistory.length
     ? `<section class="audit" aria-labelledby="audit-title"><h3 id="audit-title">Audit history</h3><ol>${auditHistory.map((entry) => `<li><strong>${esc(entry.action.replaceAll("_", " "))}</strong><span>${esc(entry.actor)} · ${esc(new Date(entry.created_at).toLocaleString())}</span><p>${esc(entry.detail)}</p></li>`).join("")}</ol></section>`
     : "";
-  return `<section class="packet" aria-labelledby="packet-title"><div class="packet-head"><div><p class="eyebrow">${esc(draft.source)}</p><h2 id="packet-title">${esc(draft.title)}</h2><p class="packet-meta">Accountable owner: <strong>${esc(draft.owner)}</strong>${draft.approved_by ? ` · Approved by <strong>${esc(draft.approved_by)}</strong>` : ""}</p>${draft.source_url ? `<p><a href="${esc(draft.source_url)}" rel="external">Open source pull request (opens GitHub)</a></p>` : ""}</div><div class="stamp ${blockers ? "hold" : "approved"}" aria-label="${immutable ? "Approved" : blockers ? "Review hold" : "Ready to approve"}"><span>${immutable ? "APPROVED" : blockers ? "HOLD" : "READY"}</span><small>${immutable ? "record retained" : blockers ? `${blockers} owner check${blockers === 1 ? "" : "s"}` : "evidence attached"}</small></div></div><div class="packet-grid"><section aria-labelledby="changed-title"><h3 id="changed-title">Changed files</h3><ul class="file-list">${draft.changed.length ? draft.changed.map((f, i) => `<li><span class="file-no">${String(i + 1).padStart(2, "0")}</span><code>${esc(f)}</code></li>`).join("") : "<li>No changed files recorded.</li>"}</ul></section><section aria-labelledby="checks-title"><h3 id="checks-title">Review evidence</h3><ul class="checks">${draft.checks.map((c, i) => `<li class="check ${c.state}"><span class="state-dot" aria-hidden="true">${c.state === "risk" ? "!" : c.state === "done" ? "✓" : "•"}</span><div><strong>${esc(c.label)}</strong><p>${esc(c.detail)}</p></div>${!immutable && (c.state === "risk" || c.state === "missing") ? `<button class="small-button" data-resolve="${i}">Mark reviewed</button>` : ""}</li>`).join("")}</ul></section></div>${history}<div class="packet-actions"><button class="secondary" id="export-packet">Export packet${demo ? "" : " and history"}</button>${demo ? "" : '<button class="danger-button" id="delete-packet">Delete packet</button>'}<button class="primary" id="approve-packet" ${blockers || immutable || ownerBlocked ? 'disabled aria-describedby="approval-note"' : ""}>${immutable ? "Approved" : "Approve for merge"}</button><p id="approval-note" class="status ${blockers || ownerBlocked ? "warning" : "success"}" role="status">${immutable ? "This approval is retained and immutable." : ownerBlocked ? "Only the named owner can approve this packet." : blockers ? "Resolve and save every flagged owner check before approval." : "All evidence is saved. Approval records the named owner."}</p></div></section>`;
+  return `<section class="packet" aria-labelledby="packet-title"><div class="packet-head"><div><p class="eyebrow">${esc(draft.source)}</p><h2 id="packet-title">${esc(draft.title)}</h2><p class="packet-meta">Accountable owner: <strong>${esc(draft.owner)}</strong>${draft.approved_by ? ` · Approved by <strong>${esc(draft.approved_by)}</strong>` : ""}</p>${draft.source_url ? `<p><a href="${esc(draft.source_url)}" rel="external">Open source pull request (opens GitHub)</a></p>` : ""}</div><div class="stamp ${blockers ? "hold" : "approved"}" aria-label="${immutable ? "Approved" : blockers ? "Review hold" : "Ready to approve"}"><span>${immutable ? "APPROVED" : blockers ? "HOLD" : "READY"}</span><small>${immutable ? "record retained" : blockers ? `${blockers} owner check${blockers === 1 ? "" : "s"}` : "evidence attached"}</small></div></div><div class="packet-grid"><section aria-labelledby="changed-title"><h3 id="changed-title">Changed files</h3><ul class="file-list">${draft.changed.length ? draft.changed.map((f, i) => `<li><span class="file-no">${String(i + 1).padStart(2, "0")}</span><code>${esc(f)}</code></li>`).join("") : "<li>No changed files recorded.</li>"}</ul></section><section aria-labelledby="checks-title"><h3 id="checks-title">Review evidence</h3><ul class="checks">${draft.checks.map((c, i) => `<li class="check ${c.state}"><span class="state-dot" aria-hidden="true">${c.state === "risk" ? "!" : c.state === "done" ? "✓" : "•"}</span><div><strong>${esc(c.label)}</strong><p>${esc(c.detail)}</p></div>${!immutable && (c.state === "risk" || c.state === "missing") && (demo || c.label !== "Test evidence") ? `<button class="small-button" data-resolve="${i}">Mark reviewed</button>` : ""}</li>`).join("")}</ul>${!demo && !immutable && !hasRecordedTestEvidence ? '<form id="test-evidence-form" class="packet-form"><h3>Save test evidence</h3><label for="evidence-command">Command</label><input id="evidence-command" required placeholder="npm test"><label for="evidence-result">Result</label><textarea id="evidence-result" rows="2" required placeholder="All 24 tests passed"></textarea><button class="secondary" type="submit">Save test evidence</button></form>' : ""}</section></div>${history}<div class="packet-actions"><button class="secondary" id="export-packet">Export packet${demo ? "" : " and history"}</button>${demo ? "" : '<button class="danger-button" id="delete-packet">Delete packet</button>'}<button class="primary" id="approve-packet" ${blockers || immutable || ownerBlocked ? 'disabled aria-describedby="approval-note"' : ""}>${immutable ? "Approved" : "Approve for merge"}</button><p id="approval-note" class="status ${blockers || ownerBlocked ? "warning" : "success"}" role="status">${immutable ? "This approval is retained and immutable." : ownerBlocked ? "Only the named owner can approve this packet." : blockers ? "Resolve and save every flagged owner check before approval." : "All evidence is saved. Approval records the named owner."}</p></div></section>`;
 }
 function landing() {
   queueMicrotask(() => {
@@ -196,7 +230,7 @@ function landing() {
         '<img src="/change-control.webp" width="900" height="600" fetchpriority="high" decoding="async" alt="Printed file sheets and review marks arranged across a change-control desk."><b class="art-stamp">CHECK</b>';
   });
   shell(
-    `<section class="hero"><div class="hero-copy"><p class="eyebrow">Accountable review for agent changes</p><h1 tabindex="-1">Review agent changes before merge</h1><p class="lede">For small software teams who need an owner and evidence before an agent-made change lands.</p><div class="button-row"><button class="primary" id="hero-demo">Try it with sample data</button><span class="after-action">Opens a complete review packet.</span></div><ul class="facts"><li>Sample data stays in this browser.</li><li>Sociobot sign-in limits packets to one team.</li><li>GitHub imports read every changed-file page.</li></ul></div><figure class="hero-art"><div class="hero-print" role="img" aria-label="Printed file sheets, a test receipt, and an approval stamp arranged as a review desk."><i class="paper p1"></i><i class="paper p2"></i><i class="receipt"></i><b class="art-stamp">CHECK</b></div><figcaption>Every packet names an owner and records review evidence.</figcaption></figure></section><section class="live-area" aria-labelledby="desk-title"><div class="section-kicker"><p class="eyebrow">Live review desk</p><h2 id="desk-title">Find the merge blockers first</h2></div>${packetUI()}</section><section id="how" class="how" aria-labelledby="how-title"><p class="eyebrow">How it works</p><h2 id="how-title">Make the review decision visible</h2><ol><li><b>Sign in.</b><span>Sociobot Entra identifies the reviewer and team.</span></li><li><b>Import a pull request.</b><span>The team-bound GitHub App reads every changed-file page.</span></li><li><b>Record the decision.</b><span>Resolve evidence and retain the named approval.</span></li></ol></section><section class="boundary" aria-labelledby="boundary-title"><h2 id="boundary-title">It does not merge code for you</h2><p>Diff Gate keeps security findings advisory. Your team decides what to change and who approves it.</p></section>`,
+    `<section class="hero"><div class="hero-copy"><p class="eyebrow">Accountable review for agent changes</p><h1 tabindex="-1">Review agent changes before merge</h1><p class="lede">For small software teams who need an owner and evidence before an agent-made change lands.</p><div class="button-row"><button class="primary" id="hero-demo">Try it with sample data</button><span class="after-action">Opens a complete review packet.</span></div><ul class="facts"><li>Sample data stays in this browser.</li><li>Sociobot sign-in limits packets to one team.</li><li>$12 per developer monthly or $99 per team monthly.</li></ul></div><figure class="hero-art"><div class="hero-print" role="img" aria-label="Printed file sheets, a test receipt, and an approval stamp arranged as a review desk."><i class="paper p1"></i><i class="paper p2"></i><i class="receipt"></i><b class="art-stamp">CHECK</b></div><figcaption>Every packet names an owner and records review evidence.</figcaption></figure></section><section class="live-area" aria-labelledby="desk-title"><div class="section-kicker"><p class="eyebrow">Live review desk</p><h2 id="desk-title">Find the merge blockers first</h2></div>${packetUI()}</section><section id="how" class="how" aria-labelledby="how-title"><p class="eyebrow">How it works</p><h2 id="how-title">Make the review decision visible</h2><ol><li><b>Sign in.</b><span>Sociobot Entra identifies the reviewer and team.</span></li><li><b>Set repository policy.</b><span>Name sensitive paths and the owner each path needs.</span></li><li><b>Record the decision.</b><span>Save test evidence and retain the named approval.</span></li></ol></section><section id="pricing" class="pricing" aria-labelledby="pricing-title"><p class="eyebrow">Plans</p><h2 id="pricing-title">Pay for team review</h2><p>$12 per developer each month or $99 per team each month. Sociobot bills the plan; Diff Gate never receives a payment card.</p>${licenseActive ? '<p class="status success" role="status">Your Diff Gate plan is active on this device.</p>' : `<a class="primary link-button" href="${BILLING_BASE}/checkout" rel="external">Choose a Sociobot plan (opens checkout)</a><details><summary>Restore a paid plan</summary><form id="license-form"><label for="license-token">License token</label><div class="license-row"><input id="license-token" required autocomplete="off"><button class="secondary" type="submit">Restore plan</button></div></form></details>`}</section><section class="boundary" aria-labelledby="boundary-title"><h2 id="boundary-title">It does not merge code for you</h2><p>Diff Gate keeps security findings advisory. Your team decides what to change and who approves it.</p></section>`,
     "Diff Gate home",
     "Diff Gate — Review agent changes before merge",
   );
@@ -286,6 +320,7 @@ async function saveManual(event: SubmitEvent) {
         title,
         owner,
         data: { source: "Manual review packet", changed, checks },
+        test_evidence: evidence ? { command: "Manual test evidence", result: evidence } : undefined,
       }),
     });
     draft = {
@@ -329,7 +364,7 @@ async function importPr(event: SubmitEvent) {
         : "Could not import the pull request.";
   }
 }
-async function saveEvidence() {
+async function saveEvidence(testEvidence?: { command: string; result: string }) {
   if (!draft || demo || !draft.id) return;
   const saved = await api<any>(`/api/packets/${draft.id}`, {
     method: "PUT",
@@ -339,6 +374,7 @@ async function saveEvidence() {
         changed: draft.changed,
         checks: draft.checks,
       },
+      test_evidence: testEvidence,
     }),
   });
   draft = {
@@ -392,6 +428,29 @@ function bind() {
   document
     .querySelector<HTMLFormElement>("#import-form")
     ?.addEventListener("submit", importPr);
+  document
+    .querySelector<HTMLFormElement>("#policy-form")
+    ?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const note = document.querySelector("#real-note")!;
+      const repository = document.querySelector<HTMLInputElement>("#policy-repository")!.value;
+      const rules = document.querySelector<HTMLTextAreaElement>("#policy-rules")!.value
+        .split("\n")
+        .map((line) => line.split("|").map((value) => value.trim()))
+        .filter(([path, owner]) => path && owner)
+        .map(([path, required_owner]) => ({ path, required_owner }));
+      try {
+        const saved = await api<RepositoryPolicy>("/api/repository-policies", {
+          method: "PUT",
+          body: JSON.stringify({ repository, rules }),
+        });
+        repositoryPolicies = [...repositoryPolicies.filter((policy) => policy.repository !== saved.repository), saved]
+          .sort((a, b) => a.repository.localeCompare(b.repository));
+        render();
+      } catch (error) {
+        note.textContent = error instanceof Error ? error.message : "Could not save the repository policy.";
+      }
+    });
   document
     .querySelector<HTMLFormElement>("#retention-form")
     ?.addEventListener("submit", async (event) => {
@@ -454,6 +513,29 @@ function bind() {
     }),
   );
   document
+    .querySelector<HTMLFormElement>("#test-evidence-form")
+    ?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const command = document.querySelector<HTMLInputElement>("#evidence-command")!.value;
+      const result = document.querySelector<HTMLTextAreaElement>("#evidence-result")!.value;
+      try {
+        await saveEvidence({ command, result });
+        render();
+      } catch (error) {
+        const note = document.querySelector("#approval-note")!;
+        note.textContent = error instanceof Error ? error.message : "Could not save test evidence.";
+      }
+    });
+  document
+    .querySelector<HTMLFormElement>("#license-form")
+    ?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const token = document.querySelector<HTMLInputElement>("#license-token")!.value.trim();
+      if (!token) return;
+      localStorage.setItem(LICENSE_KEY, token);
+      void verifyLicense();
+    });
+  document
     .querySelector("#approve-packet")
     ?.addEventListener("click", async () => {
       if (!draft) return;
@@ -515,4 +597,6 @@ function bind() {
 window.addEventListener("popstate", syncRoute);
 window.addEventListener("online", () => render());
 window.addEventListener("offline", () => render());
+licenseFromUrl();
+void verifyLicense();
 syncRoute();

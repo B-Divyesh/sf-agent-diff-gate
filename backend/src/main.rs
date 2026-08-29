@@ -14,7 +14,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePoolOptions, FromRow, SqlitePool};
 use std::{
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     env,
     net::SocketAddr,
     sync::{Arc, Mutex},
@@ -165,6 +165,21 @@ struct AuditEntry {
 struct TeamSettings {
     retention_days: i64,
 }
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+struct PolicyRule {
+    path: String,
+    required_owner: String,
+}
+#[derive(Serialize, Clone)]
+struct RepositoryPolicy {
+    repository: String,
+    rules: Vec<PolicyRule>,
+}
+#[derive(Deserialize)]
+struct RepositoryPolicyUpdate {
+    repository: String,
+    rules: Vec<PolicyRule>,
+}
 #[derive(Deserialize)]
 struct SettingsUpdate {
     retention_days: i64,
@@ -175,6 +190,7 @@ struct NewPacket {
     owner: Option<String>,
     data: serde_json::Value,
     source_url: Option<String>,
+    test_evidence: Option<TestEvidenceInput>,
 }
 #[derive(Deserialize)]
 struct Approval {
@@ -183,6 +199,12 @@ struct Approval {
 #[derive(Deserialize)]
 struct EvidenceUpdate {
     data: serde_json::Value,
+    test_evidence: Option<TestEvidenceInput>,
+}
+#[derive(Deserialize)]
+struct TestEvidenceInput {
+    command: String,
+    result: String,
 }
 #[derive(Deserialize)]
 struct ImportRequest {
@@ -501,12 +523,14 @@ async fn create_packet(
         .unwrap_or(&who.login)
         .trim()
         .to_string();
+    let data =
+        normalize_packet_evidence(input.data, input.test_evidence.as_ref(), &who.login, None)?;
     let packet = Packet {
         id: Uuid::new_v4().to_string(),
         title: input.title.trim().to_string(),
         owner,
         status: "needs review".into(),
-        data: input.data.to_string(),
+        data: data.to_string(),
         created_at: Utc::now().to_rfc3339(),
         approved_by: None,
         approved_at: None,
@@ -593,6 +617,115 @@ async fn update_settings(
     }))
 }
 
+fn normalized_repository(raw: &str) -> Option<String> {
+    let value = raw.trim().to_ascii_lowercase();
+    let (owner, repo) = value.split_once('/')?;
+    let valid_part = |part: &str| {
+        !part.is_empty()
+            && part.len() <= 100
+            && part
+                .chars()
+                .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.'))
+    };
+    (valid_part(owner) && valid_part(repo) && !repo.contains('/')).then_some(value)
+}
+
+fn validate_policy_rules(rules: &[PolicyRule]) -> Result<(), AppError> {
+    if rules.is_empty() || rules.len() > 20 {
+        return Err(AppError::bad("Add between 1 and 20 sensitive path rules."));
+    }
+    for rule in rules {
+        let path = rule.path.trim();
+        if path.is_empty()
+            || path.len() > 200
+            || path.starts_with('/')
+            || path.contains("..")
+            || rule.required_owner.trim().is_empty()
+            || rule.required_owner.trim().len() > 180
+        {
+            return Err(AppError::bad(
+                "Each policy rule needs a relative path and a required owner.",
+            ));
+        }
+    }
+    Ok(())
+}
+
+async fn list_repository_policies(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<Vec<RepositoryPolicy>>, AppError> {
+    let who = session(&state, &headers).await?;
+    let rows: Vec<(String, String)> = sqlx::query_as(
+        "SELECT repository,rules FROM repository_policies WHERE team_id=? ORDER BY repository",
+    )
+    .bind(&who.team_id)
+    .fetch_all(&state.db)
+    .await?;
+    let policies = rows
+        .into_iter()
+        .filter_map(|(repository, rules)| {
+            serde_json::from_str(&rules)
+                .ok()
+                .map(|rules| RepositoryPolicy { repository, rules })
+        })
+        .collect();
+    Ok(Json(policies))
+}
+
+async fn save_repository_policy(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<RepositoryPolicyUpdate>,
+) -> Result<Json<RepositoryPolicy>, AppError> {
+    let who = session(&state, &headers).await?;
+    let repository = normalized_repository(&input.repository)
+        .ok_or_else(|| AppError::bad("Use a GitHub repository shaped owner/repository."))?;
+    validate_policy_rules(&input.rules)?;
+    let rules: Vec<PolicyRule> = input
+        .rules
+        .iter()
+        .map(|rule| PolicyRule {
+            path: rule.path.trim().to_string(),
+            required_owner: rule.required_owner.trim().to_string(),
+        })
+        .collect();
+    let policy = RepositoryPolicy { repository, rules };
+    sqlx::query("INSERT INTO repository_policies (team_id,repository,rules,updated_at) VALUES (?,?,?,?) ON CONFLICT(team_id,repository) DO UPDATE SET rules=excluded.rules,updated_at=excluded.updated_at")
+        .bind(&who.team_id)
+        .bind(&policy.repository)
+        .bind(serde_json::to_string(&policy.rules).expect("policy rules serialize"))
+        .bind(Utc::now().to_rfc3339())
+        .execute(&state.db)
+        .await?;
+    Ok(Json(policy))
+}
+
+async fn repository_policy(
+    db: &SqlitePool,
+    team_id: &str,
+    repository: &str,
+) -> Result<Option<RepositoryPolicy>, AppError> {
+    let row: Option<String> = sqlx::query_scalar(
+        "SELECT rules FROM repository_policies WHERE team_id=? AND repository=?",
+    )
+    .bind(team_id)
+    .bind(repository)
+    .fetch_optional(db)
+    .await?;
+    row.map(|rules| {
+        serde_json::from_str(&rules)
+            .map(|rules| RepositoryPolicy {
+                repository: repository.to_string(),
+                rules,
+            })
+            .map_err(|_| {
+                AppError::service_unavailable("This repository policy is invalid. Save it again.")
+            })
+    })
+    .transpose()
+}
+
 async fn retention_days(db: &SqlitePool, team_id: &str) -> Result<i64, sqlx::Error> {
     Ok(
         sqlx::query_scalar::<_, i64>("SELECT retention_days FROM team_settings WHERE team_id=?")
@@ -643,14 +776,92 @@ async fn purge_all_expired_data(db: &SqlitePool) -> Result<(), sqlx::Error> {
     }
     Ok(())
 }
+fn valid_recorded_evidence(value: &serde_json::Value) -> bool {
+    let present = |field: &str, minimum: usize| {
+        value
+            .get(field)
+            .and_then(|item| item.as_str())
+            .is_some_and(|item| item.trim().len() >= minimum)
+    };
+    present("command", 3)
+        && present("result", 2)
+        && present("recorded_by", 1)
+        && value
+            .get("recorded_at")
+            .and_then(|item| item.as_str())
+            .and_then(|item| chrono::DateTime::parse_from_rfc3339(item).ok())
+            .is_some()
+}
+
+fn normalize_packet_evidence(
+    mut data: serde_json::Value,
+    submitted: Option<&TestEvidenceInput>,
+    actor: &str,
+    existing: Option<&serde_json::Value>,
+) -> Result<serde_json::Value, AppError> {
+    let object = data
+        .as_object_mut()
+        .ok_or_else(|| AppError::bad("Review evidence must be a packet object."))?;
+    let checks = object
+        .get_mut("checks")
+        .and_then(|value| value.as_array_mut())
+        .ok_or_else(|| AppError::bad("Review evidence must include the packet checks."))?;
+    if checks.is_empty() {
+        return Err(AppError::bad(
+            "Review evidence must include at least one check.",
+        ));
+    }
+    checks.retain(|check| {
+        check.get("label").and_then(|label| label.as_str()) != Some("Test evidence")
+    });
+    let stored = existing
+        .and_then(|value| value.get("test_evidence"))
+        .filter(|value| valid_recorded_evidence(value))
+        .cloned();
+    let evidence = if let Some(submitted) = submitted {
+        if submitted.command.trim().len() < 3 || submitted.result.trim().len() < 2 {
+            return Err(AppError::bad(
+                "Test evidence needs a command and a result before approval.",
+            ));
+        }
+        Some(serde_json::json!({
+            "command": submitted.command.trim(),
+            "result": submitted.result.trim(),
+            "recorded_by": actor,
+            "recorded_at": Utc::now().to_rfc3339(),
+        }))
+    } else {
+        stored
+    };
+    if let Some(evidence) = evidence {
+        let command = evidence["command"].as_str().unwrap_or_default();
+        let result = evidence["result"].as_str().unwrap_or_default();
+        checks.push(serde_json::json!({
+            "label":"Test evidence",
+            "detail":format!("{command} — {result}"),
+            "state":"done"
+        }));
+        object.insert("test_evidence".into(), evidence);
+    } else {
+        checks.push(serde_json::json!({
+            "label":"Test evidence",
+            "detail":"Attach the test command and result before owner approval.",
+            "state":"missing"
+        }));
+        object.remove("test_evidence");
+    }
+    Ok(data)
+}
+
 fn evidence_is_complete(data: &str) -> bool {
     serde_json::from_str::<serde_json::Value>(data)
         .ok()
         .and_then(|value| {
-            value
+            let checks = value
                 .get("checks")
                 .and_then(|checks| checks.as_array())
-                .cloned()
+                .cloned()?;
+            valid_recorded_evidence(value.get("test_evidence")?).then_some(checks)
         })
         .map(|checks| {
             !checks.is_empty()
@@ -676,16 +887,15 @@ async fn update_packet_evidence(
             "Approved packets are immutable. Create a new review packet for a changed decision.",
         ));
     }
-    if !input
-        .data
-        .get("checks")
-        .is_some_and(|checks| checks.as_array().is_some())
-    {
-        return Err(AppError::bad(
-            "Review evidence must include the packet checks.",
-        ));
-    }
-    let data = input.data.to_string();
+    let existing: serde_json::Value = serde_json::from_str(&packet.data)
+        .map_err(|_| AppError::service_unavailable("Stored review evidence is invalid."))?;
+    let data = normalize_packet_evidence(
+        input.data,
+        input.test_evidence.as_ref(),
+        &who.login,
+        Some(&existing),
+    )?
+    .to_string();
     sqlx::query("UPDATE packets SET data=? WHERE id=? AND team_id=?")
         .bind(data)
         .bind(&id)
@@ -853,6 +1063,18 @@ async fn import_github_pr(
 ) -> Result<(StatusCode, Json<Packet>), AppError> {
     let who = session(&state, &headers).await?;
     let (owner, repo, number) = parse_pr_url(&input.pr_url)?;
+    let repository = format!(
+        "{}/{}",
+        owner.to_ascii_lowercase(),
+        repo.to_ascii_lowercase()
+    );
+    let policy = repository_policy(&state.db, &who.team_id, &repository)
+        .await?
+        .ok_or_else(|| {
+            AppError::bad(
+                "Add a repository policy with sensitive paths and required owners before importing this pull request.",
+            )
+        })?;
     let token = installation_token(&state, &who.team_id).await?;
     let base = format!("https://api.github.com/repos/{owner}/{repo}/pulls/{number}");
     let pull = state
@@ -872,13 +1094,42 @@ async fn import_github_pr(
         .await
         .map_err(|_| AppError::service_unavailable("GitHub returned an invalid pull request."))?;
     let changed = github_changed_files(&state, &base, &token).await?;
-    let (has_contract, has_migration) = classify_changed_paths(&changed);
-    let checks = serde_json::json!([{"label":"Pull request imported","detail":format!("PR #{number} by {}. {} changed files.", pull.user.login, changed.len()),"state":"ready"},{"label":"Contract changed","detail":if has_contract {"API or contract path changed. Confirm downstream compatibility."} else {"No contract path matched the default policy."},"state":if has_contract {"risk"} else {"ready"}},{"label":"Migration found","detail":if has_migration {"Migration path changed. Database owner sign-off is required."} else {"No migration path matched the default policy."},"state":if has_migration {"risk"} else {"ready"}},{"label":"Test evidence","detail":"Attach the test command and result before owner approval.","state":"missing"}]);
-    let data = serde_json::json!({"source":format!("PR #{number} · GitHub App import"),"changed":changed,"checks":checks,"policy":"Default policy: contracts and migrations require named owner review."});
+    let matches = matched_policy_rules(&changed, &policy.rules);
+    let required_owners: BTreeSet<_> = matches
+        .iter()
+        .map(|(_, rule, _)| rule.required_owner.clone())
+        .collect();
+    if required_owners.len() > 1 {
+        return Err(AppError::bad(
+            "This pull request matches rules with different required owners. Split the change or align the repository policy.",
+        ));
+    }
+    let packet_owner = required_owners
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| who.login.clone());
+    let mut checks = vec![
+        serde_json::json!({"label":"Pull request imported","detail":format!("PR #{number} by {}. {} changed files.", pull.user.login, changed.len()),"state":"ready"}),
+        serde_json::json!({"label":"Repository policy","detail":format!("{} policy evaluated for this pull request.", policy.repository),"state":"ready"}),
+    ];
+    for (rule_index, rule, count) in matches {
+        checks.push(serde_json::json!({
+            "label":format!("Sensitive path: {}", rule.path),
+            "detail":format!("{count} changed file(s) match this rule. Required owner: {}.", rule.required_owner),
+            "state":"risk",
+            "rule":rule_index,
+        }));
+    }
+    let data = normalize_packet_evidence(
+        serde_json::json!({"source":format!("PR #{number} · GitHub App import"),"changed":changed,"checks":checks,"repository_policy":policy.repository}),
+        None,
+        &who.login,
+        None,
+    )?;
     let packet = Packet {
         id: Uuid::new_v4().to_string(),
         title: pull.title,
-        owner: who.login.clone(),
+        owner: packet_owner,
         status: "needs review".into(),
         data: data.to_string(),
         created_at: Utc::now().to_rfc3339(),
@@ -892,20 +1143,38 @@ async fn import_github_pr(
         &packet.id,
         &who.login,
         "imported",
-        "GitHub App imported this pull request and evaluated the default policy.",
+        "GitHub App imported this pull request and evaluated its repository policy.",
     )
     .await?;
     Ok((StatusCode::CREATED, Json(packet)))
 }
 
-fn classify_changed_paths(changed: &[String]) -> (bool, bool) {
-    let has_migration = changed
+fn path_matches_policy(path: &str, pattern: &str) -> bool {
+    let pattern = pattern.trim_matches('/');
+    if let Some(prefix) = pattern.strip_suffix("/**") {
+        path.starts_with(&format!("{prefix}/"))
+    } else if let Some(prefix) = pattern.strip_suffix('*') {
+        path.starts_with(prefix)
+    } else {
+        path == pattern
+    }
+}
+
+fn matched_policy_rules<'a>(
+    changed: &[String],
+    rules: &'a [PolicyRule],
+) -> Vec<(usize, &'a PolicyRule, usize)> {
+    rules
         .iter()
-        .any(|f| f.contains("migration") || f.starts_with("db/"));
-    let has_contract = changed
-        .iter()
-        .any(|f| f.contains("api/") || f.contains("contract") || f.ends_with(".graphql"));
-    (has_contract, has_migration)
+        .enumerate()
+        .filter_map(|(index, rule)| {
+            let count = changed
+                .iter()
+                .filter(|path| path_matches_policy(path, &rule.path))
+                .count();
+            (count > 0).then_some((index, rule, count))
+        })
+        .collect()
 }
 
 async fn github_changed_files(
@@ -1107,6 +1376,10 @@ fn app(state: AppState) -> Router {
         .route("/api/packets/:id/approve", post(approve_packet))
         .route("/api/packets/:id/audit", get(list_packet_audit))
         .route("/api/settings", get(get_settings).put(update_settings))
+        .route(
+            "/api/repository-policies",
+            get(list_repository_policies).put(save_repository_policy),
+        )
         .route("/api/github/import", post(import_github_pr))
         .route("/api/auth/status", get(auth_status))
         .route("/auth/entra", get(entra_login))
@@ -1151,6 +1424,7 @@ async fn create_schema(db: &SqlitePool) -> Result<(), sqlx::Error> {
     sqlx::query("CREATE TABLE IF NOT EXISTS packets (id TEXT PRIMARY KEY,team_id TEXT NOT NULL DEFAULT '',title TEXT NOT NULL,owner TEXT NOT NULL,status TEXT NOT NULL,data TEXT NOT NULL,created_at TEXT NOT NULL,approved_by TEXT,approved_at TEXT,source_url TEXT)").execute(db).await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS packet_audit (id TEXT PRIMARY KEY,packet_id TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,detail TEXT NOT NULL,created_at TEXT NOT NULL)").execute(db).await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS team_settings (team_id TEXT PRIMARY KEY,retention_days INTEGER NOT NULL CHECK(retention_days BETWEEN 1 AND 3650))").execute(db).await?;
+    sqlx::query("CREATE TABLE IF NOT EXISTS repository_policies (team_id TEXT NOT NULL,repository TEXT NOT NULL,rules TEXT NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(team_id,repository))").execute(db).await?;
     Ok(())
 }
 #[tokio::main]
@@ -1280,7 +1554,8 @@ mod tests {
             .execute(&db)
             .await
             .unwrap();
-        sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at) VALUES ('packet-b','b','Private change','bea','needs review','{\"checks\":[{\"state\":\"done\"}]}',?)")
+        sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at) VALUES ('packet-b','b','Private change','bea','needs review',?,?)")
+            .bind(serde_json::json!({"checks":[{"label":"Review","state":"done"}],"test_evidence":{"command":"cargo test","result":"passed","recorded_by":"bea","recorded_at":now}}).to_string())
             .bind(&now)
             .execute(&db)
             .await
@@ -1347,15 +1622,37 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(missing.status(), StatusCode::BAD_REQUEST);
+        let forged_evidence = app
+            .clone()
+            .oneshot(
+                Request::put("/api/packets/packet")
+                    .header("cookie", "diff_gate_session=owner-token")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from("{\"data\":{\"checks\":[{\"label\":\"Test evidence\",\"detail\":\"Attach the test command and result before owner approval.\",\"state\":\"done\"}]}}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(forged_evidence.status(), StatusCode::OK);
+        let forged_approval = app
+            .clone()
+            .oneshot(
+                Request::post("/api/packets/packet/approve")
+                    .header("cookie", "diff_gate_session=owner-token")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(forged_approval.status(), StatusCode::BAD_REQUEST);
         let evidence = app
             .clone()
             .oneshot(
                 Request::put("/api/packets/packet")
                     .header("cookie", "diff_gate_session=owner-token")
                     .header("content-type", "application/json")
-                    .body(axum::body::Body::from(
-                        "{\"data\":{\"checks\":[{\"state\":\"done\"}]}}",
-                    ))
+                    .body(axum::body::Body::from("{\"data\":{\"checks\":[{\"label\":\"Review complete\",\"state\":\"done\"}]},\"test_evidence\":{\"command\":\"cargo test\",\"result\":\"24 passed\"}}"))
                     .unwrap(),
             )
             .await
@@ -1388,9 +1685,10 @@ mod tests {
             .fetch_one(&db)
             .await
             .unwrap();
-        assert!(state.contains("done"));
+        assert!(state.contains("cargo test"));
+        assert!(state.contains("\"recorded_by\":\"owner"));
         let audit_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM packet_audit WHERE packet_id='packet' AND action='evidence_updated'").fetch_one(&db).await.unwrap();
-        assert_eq!(audit_count, 1);
+        assert_eq!(audit_count, 2);
     }
     #[test]
     fn entra_and_github_installations_are_configured_per_team() {
@@ -1445,8 +1743,8 @@ mod tests {
                 );
             }
             Json(vec![
-                serde_json::json!({"filename":"src/api/contracts/user.graphql"}),
-                serde_json::json!({"filename":"db/migrations/20260828_users.sql"}),
+                serde_json::json!({"filename":"schema/user.graphql"}),
+                serde_json::json!({"filename":"infra/production.tf"}),
             ])
         }
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -1473,8 +1771,72 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(changed.len(), 102);
-        assert_eq!(classify_changed_paths(&changed), (true, true));
+        let rules = vec![
+            PolicyRule {
+                path: "schema/**".into(),
+                required_owner: "database-owner".into(),
+            },
+            PolicyRule {
+                path: "infra/**".into(),
+                required_owner: "platform-owner".into(),
+            },
+        ];
+        let matches = matched_policy_rules(&changed, &rules);
+        assert_eq!(
+            matches
+                .iter()
+                .map(|(_, rule, _)| rule.required_owner.as_str())
+                .collect::<Vec<_>>(),
+            vec!["database-owner", "platform-owner"]
+        );
         server.abort();
+    }
+    #[tokio::test]
+    async fn repository_policy_is_team_scoped_and_requires_its_own_paths_and_owner() {
+        let (app, db) = test_app().await;
+        let future = (Utc::now() + ChronoDuration::days(1)).to_rfc3339();
+        sqlx::query(
+            "INSERT INTO teams (id,name,created_at) VALUES ('team','Team',?),('other','Other',?)",
+        )
+        .bind(&future)
+        .bind(&future)
+        .execute(&db)
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO sessions (token,team_id,login,expires_at) VALUES ('token','team','owner',?),('other-token','other','other',?)")
+            .bind(&future).bind(&future).execute(&db).await.unwrap();
+        let saved = app.clone().oneshot(Request::put("/api/repository-policies")
+            .header("cookie", "diff_gate_session=token").header("content-type", "application/json")
+            .body(axum::body::Body::from("{\"repository\":\"Acme/Service\",\"rules\":[{\"path\":\"schema/**\",\"required_owner\":\"database-owner\"}]}"))
+            .unwrap()).await.unwrap();
+        assert_eq!(saved.status(), StatusCode::OK);
+        let own = app
+            .clone()
+            .oneshot(
+                Request::get("/api/repository-policies")
+                    .header("cookie", "diff_gate_session=token")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let own_body = to_bytes(own.into_body(), usize::MAX).await.unwrap();
+        assert!(std::str::from_utf8(&own_body)
+            .unwrap()
+            .contains("database-owner"));
+        let hidden = app
+            .oneshot(
+                Request::get("/api/repository-policies")
+                    .header("cookie", "diff_gate_session=other-token")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let hidden_body = to_bytes(hidden.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(hidden_body.as_ref(), b"[]");
+        assert!(path_matches_policy("schema/user.graphql", "schema/**"));
+        assert!(!path_matches_policy("src/schema/user.graphql", "schema/**"));
     }
     #[tokio::test]
     async fn retention_and_explicit_deletion_remove_packets_and_audit() {
@@ -1558,7 +1920,8 @@ mod tests {
         .unwrap();
         sqlx::query("INSERT INTO sessions (token,team_id,login,expires_at) VALUES ('token','team','owner',?),('other-token','other','owner',?)")
             .bind(&future).bind(&future).execute(&db).await.unwrap();
-        sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at) VALUES ('packet','team','Ready','owner','needs review','{\"checks\":[{\"state\":\"done\"}]}',?)")
+        sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at) VALUES ('packet','team','Ready','owner','needs review',?,?)")
+            .bind(serde_json::json!({"checks":[{"label":"Review","state":"done"}],"test_evidence":{"command":"cargo test","result":"passed","recorded_by":"owner","recorded_at":future}}).to_string())
             .bind(&future).execute(&db).await.unwrap();
         let request = || {
             Request::post("/api/packets/packet/approve")

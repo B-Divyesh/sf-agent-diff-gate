@@ -88,6 +88,19 @@ test('dark mode has no serious or critical axe findings on every public route', 
   await context.close();
 });
 
+test('light mode has no serious or critical axe findings on every public route', async ({ browser }) => {
+  const context = await browser.newContext({ colorScheme: 'light', viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await mockSignedOut(page);
+  for (const path of ['/', '/demo', '/privacy', '/terms']) {
+    await page.goto(path);
+    const results = await new AxeBuilder({ page }).analyze();
+    const blocking = results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');
+    expect(blocking, `${path}: ${JSON.stringify(blocking)}`).toEqual([]);
+  }
+  await context.close();
+});
+
 test('@claim:audit-export signed-in packet history exposes retention, audit export, and confirmed deletion', async ({ page }) => {
   let deleted = false;
   let retention = 90;
@@ -103,6 +116,7 @@ test('@claim:audit-export signed-in packet history exposes retention, audit expo
     if (path === '/api/auth/status') return route.fulfill({ json: { authenticated: true, entra_sign_in_configured: true, github_app_configured: true, user: 'owner@example.com', team: 'Quality' } });
     if (path === '/api/packets' && request.method() === 'GET') return route.fulfill({ json: deleted ? [] : [{ id: packet.id, title: packet.title, status: packet.status }] });
     if (path === '/api/settings' && request.method() === 'GET') return route.fulfill({ json: { retention_days: retention } });
+    if (path === '/api/repository-policies' && request.method() === 'GET') return route.fulfill({ json: [] });
     if (path === '/api/settings' && request.method() === 'PUT') {
       retention = JSON.parse(request.postData() || '{}').retention_days;
       return route.fulfill({ json: { retention_days: retention } });
@@ -158,9 +172,37 @@ test('demo approval is retained after reload once every check is resolved', asyn
 test('navigation and footer links meet 44px touch targets at 390px', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/demo');
-  for (const link of [page.getByRole('link', { name: 'Demo' }), page.getByRole('link', { name: 'Privacy' }).last(), page.getByRole('link', { name: 'Terms' })]) {
+  for (const link of [page.getByRole('link', { name: 'Skip to content' }), page.getByRole('link', { name: 'Demo' }), page.getByRole('link', { name: 'Privacy' }).last(), page.getByRole('link', { name: 'Terms' })]) {
     const box = await link.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(44);
     expect(box?.height).toBeGreaterThanOrEqual(44);
   }
+});
+
+test('every rendered demo control has a 44px minimum target at 390px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/demo');
+  for (const control of await page.locator('a, button, input, textarea, summary').all()) {
+    const box = await control.boundingBox();
+    expect(box, await control.evaluate((element) => element.outerHTML)).not.toBeNull();
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+  }
+});
+
+test('@claim:sociobot-billing shows the documented monthly plans and verifies a restored Sociobot license', async ({ page }) => {
+  let verified = false;
+  await mockSignedOut(page);
+  await page.route('https://api.sociobot.in/api/v1/products/agent-diff-gate/verify?license=fixture-license', route => {
+    verified = true;
+    return route.fulfill({ json: { valid: true, reason: 'ok' } });
+  });
+  await page.goto('/');
+  await expect(page.getByText('$12 per developer each month or $99 per team each month.')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Choose a Sociobot plan/ })).toHaveAttribute('href', 'https://api.sociobot.in/api/v1/products/agent-diff-gate/checkout');
+  await page.getByText('Restore a paid plan').click();
+  await page.locator('#license-token').fill('fixture-license');
+  await page.getByRole('button', { name: 'Restore plan' }).click();
+  await expect.poll(() => verified).toBeTruthy();
+  await expect(page.getByText('Your Diff Gate plan is active on this device.')).toBeVisible();
 });
