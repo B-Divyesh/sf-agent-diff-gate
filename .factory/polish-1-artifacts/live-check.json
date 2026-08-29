@@ -1,0 +1,49 @@
+{
+  "home": {
+    "status": 200,
+    "title": "Diff Gate — Review agent-authored changes before merge",
+    "h1": "Review agent-authored changes before merge",
+    "console": [],
+    "serious": []
+  },
+  "demo": {
+    "status": 200,
+    "title": "Demo — Diff Gate",
+    "h1": "See an agent-authored change under review",
+    "console": [],
+    "serious": []
+  },
+  "privacy": {
+    "status": 200,
+    "title": "Privacy — Diff Gate",
+    "h1": "How Diff Gate handles review data",
+    "console": [],
+    "serious": []
+  },
+  "terms": {
+    "status": 200,
+    "title": "Terms — Diff Gate",
+    "h1": "Terms for using Diff Gate",
+    "console": [],
+    "serious": []
+  },
+  "missing": {
+    "status": 200,
+    "title": "Not found — Diff Gate",
+    "h1": "This review desk is empty",
+    "console": [],
+    "serious": []
+  },
+  "mobile": {
+    "action": {
+      "x": 20,
+      "y": 542.203125,
+      "width": 207.609375,
+      "height": 46.3125
+    },
+    "insideViewport": true,
+    "url": "https://agent-diff-gate.sociobot.in/?demo=1",
+    "banner": true,
+    "console": []
+  }
+}
