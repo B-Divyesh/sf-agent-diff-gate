@@ -1,6 +1,6 @@
 # Diff Gate polish 2 handoff
 
-**Repair commit:** `a34f12d3a5f41c6eb86458f89a691e8c620b3b17`  
+**Repair commits:** `a34f12d3a5f41c6eb86458f89a691e8c620b3b17` (product) and `9b5b69bffc133f07c696cdec1dfb95a528c3f5df` (handoff)  
 **Live URL:** <https://agent-diff-gate.sociobot.in>
 
 ## Delivered
@@ -23,9 +23,11 @@
 - `node scripts/live-browser-smoke.mjs http://127.0.0.1:18082` — passed desktop/mobile, Axe, keyboard, offline-demo, privacy, and unfiltered missing-route console checks. Screenshots: `.factory/repair-6-artifacts/live-desktop.png` and `.factory/repair-6-artifacts/live-mobile.png`.
 - Clean clone `/tmp/diff-gate-clean-3XtSqh`: `npm ci`, then all 20 commands from `.factory/claims.json`, passed. Transcript: `/tmp/diff-gate-clean-claims.log`.
 
-## Deployment follow-up
+## Deployment and live recheck
 
-Run `scripts/deploy-production.sh` after this handoff commit is pushed. It performs the Azure Files durable-store replacement check. Then run `node scripts/live-browser-smoke.mjs https://agent-diff-gate.sociobot.in` cold and record the result here.
+- Deployed through `scripts/deploy-production.sh`; live `/health` reports build `9b5b69bffc133f07c696cdec1dfb95a528c3f5df` and the durable storage identity.
+- Cold live `node scripts/live-browser-smoke.mjs https://agent-diff-gate.sociobot.in` passed desktop/mobile, Axe, keyboard, offline-demo, privacy, and missing-route console checks.
+- `./scripts/verify-live-deployment.sh https://agent-diff-gate.sociobot.in` passed the public PKCE identity, one-replica, Azure Files `/data`, and durable-replacement checks.
 
 ## Known gaps
 
