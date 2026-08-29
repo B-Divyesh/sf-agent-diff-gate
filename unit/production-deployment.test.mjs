@@ -8,6 +8,7 @@ import {
   productionContractErrors,
   renderProductionTemplate,
 } from '../deploy/production-contract.mjs';
+import { assertRateLimitResults } from '../deploy/live-rate-limit.mjs';
 
 const runtime = {
   PUBLIC_BASE_URL: 'https://agent-diff-gate.sociobot.in',
@@ -19,6 +20,7 @@ const runtime = {
 const image = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:repair-sha';
 const storageName = 'agent-diff-gate-data-v4';
 const verifier15CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:43c2f38a2e95';
+const verifier16CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:88c392a7825d';
 
 function factoryStatelessApp() {
   return {
@@ -54,6 +56,21 @@ function verifier15LiveApp() {
   const app = factoryStatelessApp();
   app.properties.template.containers[0].image = verifier15CandidateImage;
   app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
+  return app;
+}
+
+function verifier16LiveApp() {
+  const app = factoryStatelessApp();
+  app.properties.latestRevisionName = 'sf-agent-diff-gate--0000061';
+  app.properties.template.containers[0].image = verifier16CandidateImage;
+  app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
+  app.properties.template.scale = {
+    cooldownPeriod: 300,
+    maxReplicas: 3,
+    minReplicas: 1,
+    pollingInterval: 30,
+    rules: null,
+  };
   return app;
 }
 
@@ -112,6 +129,62 @@ test('regression: verifier 15 candidate image cannot pass with the generic state
       }),
     /Unsafe production configuration/,
   );
+});
+
+test('regression: verifier 16 live revision is rejected and repaired as one stateful replica', () => {
+  // Exact control-plane fixture from verification 16: the right image was not
+  // enough because the generic release recreated a PORT-only three-replica
+  // template with three independent SQLite databases and limiters.
+  const failingLiveConfiguration = verifier16LiveApp();
+  const errors = productionContractErrors(failingLiveConfiguration, {
+    image: verifier16CandidateImage,
+    storageName,
+    runtime,
+  });
+
+  assert.deepEqual(errors, [
+    'SQLite requires exactly one replica',
+    'Azure Files volume data must use agent-diff-gate-data-v4',
+    'Azure Files volume data must be mounted at /data',
+    'DATABASE_URL must match the production contract',
+    'PUBLIC_BASE_URL must match the production contract',
+    'ENTRA_AUTHORITY must match the production contract',
+    'ENTRA_TENANT_ID must match the production contract',
+    'ENTRA_CLIENT_ID must match the production contract',
+    'ENTRA_TEAM_CLAIM must match the production contract',
+    'DEPLOYMENT_CONFIG_VERSION must match the production contract',
+  ]);
+
+  const repaired = structuredClone(failingLiveConfiguration);
+  repaired.properties.template = renderProductionTemplate(failingLiveConfiguration, {
+    image: verifier16CandidateImage,
+    storageName,
+    runtime,
+  });
+  assert.doesNotThrow(() =>
+    assertProductionContract(repaired, { image: verifier16CandidateImage, storageName, runtime }),
+  );
+});
+
+test('regression: verifier 16 multiplied rate allowance fails the live probe', () => {
+  const expected = [
+    ...Array.from({ length: 40 }, () => ({ status: 200, retryAfter: null })),
+    ...Array.from({ length: 60 }, () => ({ status: 429, retryAfter: '1' })),
+  ];
+  assert.deepEqual(assertRateLimitResults(expected), { accepted: 40, rejected: 60, retryAfter: '1' });
+
+  const threeReplicaResult = [
+    ...Array.from({ length: 120 }, () => ({ status: 200, retryAfter: null })),
+    ...Array.from({ length: 30 }, () => ({ status: 429, retryAfter: '1' })),
+  ];
+  assert.throws(
+    () => assertRateLimitResults(threeReplicaResult, { total: 150 }),
+    /accepted 120 requests; expected exactly 40/,
+  );
+
+  const missingRetryAfter = structuredClone(expected);
+  missingRetryAfter.at(-1).retryAfter = null;
+  assert.throws(() => assertRateLimitResults(missingRetryAfter), /did not include Retry-After: 1/);
 });
 
 test('regression: a duplicate managed variable or data mount cannot mask an unsafe contract', () => {

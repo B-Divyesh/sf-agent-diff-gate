@@ -59,6 +59,7 @@ concurrent_health_identity() {
 }
 
 test "$(concurrent_health_identity)" = "$before_id"
+node "$repo_dir/deploy/live-rate-limit.mjs" "$base_url"
 
 not_found_headers=$(mktemp)
 trap 'rm -f "$not_found_headers"' EXIT
@@ -84,6 +85,7 @@ if [ "$replace" = "--replace" ]; then
   test "$(printf '%s' "$after" | jq -r .build)" = "$expected_build"
   assert_control_plane
   test "$(concurrent_health_identity)" = "$before_id"
+  node "$repo_dir/deploy/live-rate-limit.mjs" "$base_url"
 fi
 
-printf 'Live deployment contract passed: expected build, one concurrent storage identity, public Entra callback, one replica, Azure Files /data, and durable replacement identity %s.\n' "$before_id"
+printf 'Live deployment contract passed: expected build, one concurrent storage identity, global 40-request allowance with Retry-After, public Entra callback, one replica, Azure Files /data, and durable replacement identity %s.\n' "$before_id"
