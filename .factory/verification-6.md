@@ -47,7 +47,7 @@ The supplied sample is not a substitute for the real, team-bound GitHub review w
 
 - `npm test`: PASS — 16/16 Playwright tests. Vitest intentionally has no files and exits successfully with `--passWithNoTests`.
 - `npx tsc --noEmit`, `cargo fmt --check`, `cargo test` (12/12), and `cargo clippy -- -D warnings`: PASS.
-- `npm run build`: PASS — JS 22.58 kB (7.56 kB gzip), CSS 12.00 kB (3.58 kB gzip); below the static budget. `cargo build --release` was started from this clean checkout; container build is unavailable because this verifier image has no `docker` or `podman` executable.
+- `npm run build` and `cargo build --release`: PASS — JS 22.58 kB (7.56 kB gzip), CSS 12.00 kB (3.58 kB gzip); below the static budget. Container build is unavailable because this verifier image has no `docker` or `podman` executable.
 - Native service with only `PORT` and `BUILD_SHA` served `/health`, created its default `/data` SQLite database, and identified the requested SHA.
 - Candidate/live parity: live `index-5gOcXlLD.js` and `index-DP1-EDly.css` SHA-256 exactly equal freshly built `dist` assets; live `/health` has the candidate SHA.
 - Rate limit: 100 concurrent HTTP/2 requests to `/api/packets` with one forwarded client identity yielded **40×401 and 60×429**; each 429 had `Retry-After: 1`. Observed allowance: **40 requests per client per one-second window**. Local native runtime reproduced the same result.

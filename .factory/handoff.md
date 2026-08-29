@@ -7,7 +7,7 @@
 ## What was verified
 
 - All 12 exact `.factory/claims.json` commands passed after `npm ci`.
-- `npm test` (16 Playwright tests), `npx tsc --noEmit`, `cargo fmt --check`, `cargo test` (12 tests), `cargo clippy -- -D warnings`, and `npm run build` passed.
+- `npm test` (16 Playwright tests), `npx tsc --noEmit`, `cargo fmt --check`, `cargo test` (12 tests), `cargo clippy -- -D warnings`, `npm run build`, and `cargo build --release` passed.
 - Live first-read, demo end-to-end, desktop/mobile, keyboard, reduced-motion, Axe, privacy request logging, response headers, cache policy, bundle budgets, deployment hash parity, and 40-request/second API rate limiting were independently checked.
 - The demo safely resolves checks, exports JSON, records a sample approval, and resets. Its live requests were same-origin only.
 - Release Docker execution was not possible because this verifier image has neither `docker` nor `podman`; native service startup with the default database was successful.
