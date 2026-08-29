@@ -1,0 +1,111 @@
+{
+  "entered": {
+    "url": "https://agent-diff-gate.sociobot.in/?demo=1",
+    "title": "Demo — Diff Gate",
+    "text": "Skip to content\n≡ Diff Gate\nDemo\nHow it works\nPrivacy\nDemo — sample data, nothing is saved\nReset demoStart for real\n\nDemo — Diff Gate\n\nSAMPLE REVIEW PACKET\n\nSee an agent-authored change under review\n\nInspect the required owner, evidence, and sensitive paths. This sample is separate from real packets.\n\nPR #482 · AGENT-AUTHORED\n\nAdd organization-level retention controls\n\nRequired owner: Mira Chen\n\nHOLD\n2 required owner checks\nCHANGED FILES\n01\nsrc/policy/retention.ts\n02\ndb/migrations/20260828_retention.sql\n03\nsrc/api/export.ts\nREVIEW EVIDENCE\n•\nContract changed\n\nExport API now returns retention state.\n\n!\nMigration found\n\nAdds retention_days and backfills 14,382 rows.\n\nMark reviewed\n•\nTest evidence\n\npnpm test: 214 passed · migration check: passed\n\n!\nRisky path\n\ndb/migrations requires database owner sign-off.\n\nMark reviewed\nExport packet\nApprove for merge\n\nResolve and save every required owner check before approval.\n\nReview agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0",
+    "storage": {
+      "local": {
+        "real:sentinel": "preserve-me"
+      },
+      "session": {
+        "demo:diff-gate": "{\"title\":\"Add organization-level retention controls\",\"owner\":\"Mira Chen\",\"source\":\"PR #482 · agent-authored\",\"changed\":[\"src/policy/retention.ts\",\"db/migrations/20260828_retention.sql\",\"src/api/export.ts\"],\"checks\":[{\"label\":\"Contract changed\",\"detail\":\"Export API now returns retention state.\",\"state\":\"ready\"},{\"label\":\"Migration found\",\"detail\":\"Adds retention_days and backfills 14,382 rows.\",\"state\":\"risk\"},{\"label\":\"Test evidence\",\"detail\":\"pnpm test: 214 passed · migration check: passed\",\"state\":\"ready\"},{\"label\":\"Risky path\",\"detail\":\"db/migrations requires database owner sign-off.\",\"state\":\"risk\"}]}",
+        "real:sentinel": "preserve-me"
+      }
+    },
+    "above": [
+      {
+        "tag": "BUTTON",
+        "text": "Reset demo",
+        "top": 203,
+        "bottom": 247
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Start for real",
+        "top": 203,
+        "bottom": 247
+      },
+      {
+        "tag": "P",
+        "text": "Demo — Diff Gate",
+        "top": 256,
+        "bottom": 257
+      },
+      {
+        "tag": "P",
+        "text": "SAMPLE REVIEW PACKET",
+        "top": 325,
+        "bottom": 340
+      },
+      {
+        "tag": "H1",
+        "text": "See an agent-authored change under review",
+        "top": 352,
+        "bottom": 539
+      },
+      {
+        "tag": "P",
+        "text": "Inspect the required owner, evidence, and sensitive paths. This sample is separate from real packets.",
+        "top": 563,
+        "bottom": 646
+      },
+      {
+        "tag": "P",
+        "text": "PR #482 · AGENT-AUTHORED",
+        "top": 702,
+        "bottom": 717
+      },
+      {
+        "tag": "H2",
+        "text": "Add organization-level retention controls",
+        "top": 729,
+        "bottom": 786
+      },
+      {
+        "tag": "P",
+        "text": "Required owner: Mira Chen",
+        "top": 802,
+        "bottom": 827
+      }
+    ]
+  },
+  "changedHasDone": true,
+  "resetRiskCount": 2,
+  "exited": {
+    "url": "https://agent-diff-gate.sociobot.in/",
+    "local": {
+      "real:sentinel": "preserve-me"
+    },
+    "session": {
+      "real:sentinel": "preserve-me"
+    },
+    "demo": null
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-C1WdzivD.js"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-rQ7R4Jb-.css"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/api/auth/status"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/change-control.webp"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/api/auth/status"
+    }
+  ],
+  "consoleErrors": []
+}

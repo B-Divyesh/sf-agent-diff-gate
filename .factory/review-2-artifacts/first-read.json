@@ -1,0 +1,320 @@
+{
+  "mobile": {
+    "url": "https://agent-diff-gate.sociobot.in/",
+    "title": "Diff Gate — Review agent-authored changes before merge",
+    "statusText": "Skip to content\n≡ Diff Gate\nDemo\nHow it works\nPrivacy\n\nDiff Gate home\n\nREVIEW PACKETS FOR AGENT-AUTHORED CHANGES\n\nReview agent-authored changes before merge\n\nFor small software teams that need a required owner and test evidence before an agent-authored change lands.\n\nTry it with sample data\nOpens a complete review packet.\nSample data stays in this browser.\nSigned-in teams see only their review packets.\nExport the sample packet as JSON.\nCHECK\n\nREVIEW PACKET\n\nReview a pull request\n\nTEAM REVIEW\n\nSign in before reviewing repository changes\n\nSociobot Entra identifies the reviewer. Packets are visible only to that reviewer’s team.\n\nSign in with Sociobot\n\nHOW IT WORKS\n\nHow review packets work\nSign in.\nStart a team review workspace.\nSet repository policy.\nName sensitive paths and the required owner.\nRecord evidence.\nSave test evidence before the required owner approves.\nWhat Diff Gate does not do\n\nDiff Gate records a review decision. Your team merges code outside Diff Gate.\n\nReview agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0",
+    "viewport": {
+      "w": 390,
+      "h": 844,
+      "scrollY": 0
+    },
+    "aboveFold": [
+      {
+        "tag": "A",
+        "text": "≡ Diff Gate",
+        "top": 12,
+        "bottom": 59,
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "text": "Demo",
+        "top": 63,
+        "bottom": 107,
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "text": "How it works",
+        "top": 63,
+        "bottom": 107,
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "text": "Privacy",
+        "top": 111,
+        "bottom": 155,
+        "visible": true
+      },
+      {
+        "tag": "P",
+        "text": "Diff Gate home",
+        "top": 168,
+        "bottom": 169,
+        "visible": true
+      },
+      {
+        "tag": "P",
+        "text": "REVIEW PACKETS FOR AGENT-AUTHORED CHANGES",
+        "top": 197,
+        "bottom": 212,
+        "visible": true
+      },
+      {
+        "tag": "H1",
+        "text": "Review agent-authored changes before merge",
+        "top": 224,
+        "bottom": 411,
+        "visible": true
+      },
+      {
+        "tag": "P",
+        "text": "For small software teams that need a required owner and test evidence before an agent-authored change lands.",
+        "top": 435,
+        "bottom": 518,
+        "visible": true
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Try it with sample data",
+        "top": 542,
+        "bottom": 589,
+        "visible": true
+      },
+      {
+        "tag": "LI",
+        "text": "Sample data stays in this browser.",
+        "top": 679,
+        "bottom": 701,
+        "visible": true
+      },
+      {
+        "tag": "LI",
+        "text": "Signed-in teams see only their review packets.",
+        "top": 708,
+        "bottom": 730,
+        "visible": true
+      },
+      {
+        "tag": "LI",
+        "text": "Export the sample packet as JSON.",
+        "top": 737,
+        "bottom": 759,
+        "visible": true
+      }
+    ],
+    "h1": [
+      "Review agent-authored changes before merge"
+    ],
+    "links": [
+      {
+        "text": "Skip to content",
+        "href": "https://agent-diff-gate.sociobot.in/#main"
+      },
+      {
+        "text": "≡ Diff Gate",
+        "href": "https://agent-diff-gate.sociobot.in/"
+      },
+      {
+        "text": "Demo",
+        "href": "https://agent-diff-gate.sociobot.in/?demo=1"
+      },
+      {
+        "text": "How it works",
+        "href": "https://agent-diff-gate.sociobot.in/#how"
+      },
+      {
+        "text": "Privacy",
+        "href": "https://agent-diff-gate.sociobot.in/privacy"
+      },
+      {
+        "text": "Sign in with Sociobot",
+        "href": "https://agent-diff-gate.sociobot.in/auth/entra"
+      },
+      {
+        "text": "Privacy",
+        "href": "https://agent-diff-gate.sociobot.in/privacy"
+      },
+      {
+        "text": "Terms",
+        "href": "https://agent-diff-gate.sociobot.in/terms"
+      }
+    ],
+    "meta": {
+      "description": "Review agent-authored changes with required owners and test evidence before merge.",
+      "canonical": "https://agent-diff-gate.sociobot.in/",
+      "ogTitle": "Diff Gate — Review agent-authored changes before merge",
+      "ogDescription": "Review agent-authored changes with required owners and test evidence before merge.",
+      "ogImage": "/social.webp",
+      "twitter": "summary_large_image",
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg"
+    },
+    "overflow": false,
+    "httpStatus": 200,
+    "requests": [
+      "https://agent-diff-gate.sociobot.in/",
+      "https://agent-diff-gate.sociobot.in/assets/index-C1WdzivD.js",
+      "https://agent-diff-gate.sociobot.in/assets/index-rQ7R4Jb-.css",
+      "https://agent-diff-gate.sociobot.in/api/auth/status",
+      "https://agent-diff-gate.sociobot.in/change-control.webp"
+    ],
+    "consoleErrors": []
+  },
+  "desktop": {
+    "url": "https://agent-diff-gate.sociobot.in/",
+    "title": "Diff Gate — Review agent-authored changes before merge",
+    "statusText": "Skip to content\n≡ Diff Gate\nDemo\nHow it works\nPrivacy\n\nDiff Gate home\n\nREVIEW PACKETS FOR AGENT-AUTHORED CHANGES\n\nReview agent-authored changes before merge\n\nFor small software teams that need a required owner and test evidence before an agent-authored change lands.\n\nTry it with sample data\nOpens a complete review packet.\nSample data stays in this browser.\nSigned-in teams see only their review packets.\nExport the sample packet as JSON.\nCHECK\n\nREVIEW PACKET\n\nReview a pull request\n\nTEAM REVIEW\n\nSign in before reviewing repository changes\n\nSociobot Entra identifies the reviewer. Packets are visible only to that reviewer’s team.\n\nSign in with Sociobot\n\nHOW IT WORKS\n\nHow review packets work\nSign in.\nStart a team review workspace.\nSet repository policy.\nName sensitive paths and the required owner.\nRecord evidence.\nSave test evidence before the required owner approves.\nWhat Diff Gate does not do\n\nDiff Gate records a review decision. Your team merges code outside Diff Gate.\n\nReview agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0",
+    "viewport": {
+      "w": 1440,
+      "h": 900,
+      "scrollY": 0
+    },
+    "aboveFold": [
+      {
+        "tag": "A",
+        "text": "≡ Diff Gate",
+        "top": 12,
+        "bottom": 59,
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "text": "Demo",
+        "top": 14,
+        "bottom": 58,
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "text": "How it works",
+        "top": 14,
+        "bottom": 58,
+        "visible": true
+      },
+      {
+        "tag": "A",
+        "text": "Privacy",
+        "top": 14,
+        "bottom": 58,
+        "visible": true
+      },
+      {
+        "tag": "P",
+        "text": "Diff Gate home",
+        "top": 72,
+        "bottom": 73,
+        "visible": true
+      },
+      {
+        "tag": "P",
+        "text": "REVIEW PACKETS FOR AGENT-AUTHORED CHANGES",
+        "top": 129,
+        "bottom": 144,
+        "visible": true
+      },
+      {
+        "tag": "H1",
+        "text": "Review agent-authored changes before merge",
+        "top": 156,
+        "bottom": 474,
+        "visible": true
+      },
+      {
+        "tag": "P",
+        "text": "For small software teams that need a required owner and test evidence before an agent-authored change lands.",
+        "top": 498,
+        "bottom": 554,
+        "visible": true
+      },
+      {
+        "tag": "BUTTON",
+        "text": "Try it with sample data",
+        "top": 578,
+        "bottom": 624,
+        "visible": true
+      },
+      {
+        "tag": "LI",
+        "text": "Sample data stays in this browser.",
+        "top": 654,
+        "bottom": 676,
+        "visible": true
+      },
+      {
+        "tag": "LI",
+        "text": "Signed-in teams see only their review packets.",
+        "top": 683,
+        "bottom": 705,
+        "visible": true
+      },
+      {
+        "tag": "LI",
+        "text": "Export the sample packet as JSON.",
+        "top": 712,
+        "bottom": 734,
+        "visible": true
+      },
+      {
+        "tag": "P",
+        "text": "REVIEW PACKET",
+        "top": 898,
+        "bottom": 913,
+        "visible": true
+      },
+      {
+        "tag": "H2",
+        "text": "Review a pull request",
+        "top": 871,
+        "bottom": 925,
+        "visible": true
+      }
+    ],
+    "h1": [
+      "Review agent-authored changes before merge"
+    ],
+    "links": [
+      {
+        "text": "Skip to content",
+        "href": "https://agent-diff-gate.sociobot.in/#main"
+      },
+      {
+        "text": "≡ Diff Gate",
+        "href": "https://agent-diff-gate.sociobot.in/"
+      },
+      {
+        "text": "Demo",
+        "href": "https://agent-diff-gate.sociobot.in/?demo=1"
+      },
+      {
+        "text": "How it works",
+        "href": "https://agent-diff-gate.sociobot.in/#how"
+      },
+      {
+        "text": "Privacy",
+        "href": "https://agent-diff-gate.sociobot.in/privacy"
+      },
+      {
+        "text": "Sign in with Sociobot",
+        "href": "https://agent-diff-gate.sociobot.in/auth/entra"
+      },
+      {
+        "text": "Privacy",
+        "href": "https://agent-diff-gate.sociobot.in/privacy"
+      },
+      {
+        "text": "Terms",
+        "href": "https://agent-diff-gate.sociobot.in/terms"
+      }
+    ],
+    "meta": {
+      "description": "Review agent-authored changes with required owners and test evidence before merge.",
+      "canonical": "https://agent-diff-gate.sociobot.in/",
+      "ogTitle": "Diff Gate — Review agent-authored changes before merge",
+      "ogDescription": "Review agent-authored changes with required owners and test evidence before merge.",
+      "ogImage": "/social.webp",
+      "twitter": "summary_large_image",
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg"
+    },
+    "overflow": false,
+    "httpStatus": 200,
+    "requests": [
+      "https://agent-diff-gate.sociobot.in/",
+      "https://agent-diff-gate.sociobot.in/assets/index-C1WdzivD.js",
+      "https://agent-diff-gate.sociobot.in/assets/index-rQ7R4Jb-.css",
+      "https://agent-diff-gate.sociobot.in/api/auth/status",
+      "https://agent-diff-gate.sociobot.in/change-control.webp"
+    ],
+    "consoleErrors": []
+  }
+}

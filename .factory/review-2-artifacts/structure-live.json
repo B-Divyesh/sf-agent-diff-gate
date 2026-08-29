@@ -1,0 +1,386 @@
+{
+  "routes": [
+    {
+      "profile": "mobile",
+      "path": "/",
+      "status": 200,
+      "title": "Diff Gate — Review agent-authored changes before merge",
+      "lang": "en",
+      "h1": [
+        "Review agent-authored changes before merge"
+      ],
+      "mains": 1,
+      "description": "Review agent-authored changes with required owners and test evidence before merge.",
+      "canonical": "https://agent-diff-gate.sociobot.in/",
+      "ogTitle": "Diff Gate — Review agent-authored changes before merge",
+      "ogDescription": "Review agent-authored changes with required owners and test evidence before merge.",
+      "ogImage": "/social.webp",
+      "twitter": "summary_large_image",
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg",
+      "apple": "https://agent-diff-gate.sociobot.in/apple-touch-icon.png",
+      "headers": [
+        "≡ Diff Gate",
+        "Demo",
+        "How it works",
+        "Privacy"
+      ],
+      "footer": [
+        "Review agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0"
+      ],
+      "overflow": false,
+      "serious": [],
+      "errors": []
+    },
+    {
+      "profile": "mobile",
+      "path": "/demo",
+      "status": 200,
+      "title": "Demo — Diff Gate",
+      "lang": "en",
+      "h1": [
+        "See an agent-authored change under review"
+      ],
+      "mains": 1,
+      "description": "Inspect a sample agent-authored change review packet without saving data.",
+      "canonical": "https://agent-diff-gate.sociobot.in/demo",
+      "ogTitle": "Demo — Diff Gate",
+      "ogDescription": "Inspect a sample agent-authored change review packet without saving data.",
+      "ogImage": "/social.webp",
+      "twitter": "summary_large_image",
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg",
+      "apple": "https://agent-diff-gate.sociobot.in/apple-touch-icon.png",
+      "headers": [
+        "≡ Diff Gate",
+        "Demo",
+        "How it works",
+        "Privacy"
+      ],
+      "footer": [
+        "Review agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0"
+      ],
+      "overflow": false,
+      "serious": [],
+      "errors": []
+    },
+    {
+      "profile": "mobile",
+      "path": "/privacy",
+      "status": 200,
+      "title": "Privacy — Diff Gate",
+      "lang": "en",
+      "h1": [
+        "How Diff Gate handles review data"
+      ],
+      "mains": 1,
+      "description": "How Diff Gate handles sample data and team review packets.",
+      "canonical": "https://agent-diff-gate.sociobot.in/privacy",
+      "ogTitle": "Privacy — Diff Gate",
+      "ogDescription": "How Diff Gate handles sample data and team review packets.",
+      "ogImage": "/social.webp",
+      "twitter": "summary_large_image",
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg",
+      "apple": "https://agent-diff-gate.sociobot.in/apple-touch-icon.png",
+      "headers": [
+        "≡ Diff Gate",
+        "Demo",
+        "How it works",
+        "Privacy"
+      ],
+      "footer": [
+        "Review agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0"
+      ],
+      "overflow": false,
+      "serious": [],
+      "errors": []
+    },
+    {
+      "profile": "mobile",
+      "path": "/terms",
+      "status": 200,
+      "title": "Terms — Diff Gate",
+      "lang": "en",
+      "h1": [
+        "Terms for using Diff Gate"
+      ],
+      "mains": 1,
+      "description": "Terms for using Diff Gate with your team's repositories.",
+      "canonical": "https://agent-diff-gate.sociobot.in/terms",
+      "ogTitle": "Terms — Diff Gate",
+      "ogDescription": "Terms for using Diff Gate with your team's repositories.",
+      "ogImage": "/social.webp",
+      "twitter": "summary_large_image",
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg",
+      "apple": "https://agent-diff-gate.sociobot.in/apple-touch-icon.png",
+      "headers": [
+        "≡ Diff Gate",
+        "Demo",
+        "How it works",
+        "Privacy"
+      ],
+      "footer": [
+        "Review agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0"
+      ],
+      "overflow": false,
+      "serious": [],
+      "errors": []
+    },
+    {
+      "profile": "mobile",
+      "path": "/missing-review-2",
+      "status": 404,
+      "title": "Not found — Diff Gate",
+      "lang": "en",
+      "h1": [
+        "This review desk is empty"
+      ],
+      "mains": 1,
+      "description": "The requested Diff Gate page does not exist.",
+      "canonical": null,
+      "ogTitle": null,
+      "ogDescription": null,
+      "ogImage": null,
+      "twitter": null,
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg",
+      "apple": null,
+      "headers": [
+        "≡ Diff Gate",
+        "Demo",
+        "Privacy"
+      ],
+      "footer": [
+        "Review agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0"
+      ],
+      "overflow": false,
+      "serious": [],
+      "errors": [
+        "Failed to load resource: the server responded with a status of 404 ()"
+      ]
+    },
+    {
+      "profile": "desktop",
+      "path": "/",
+      "status": 200,
+      "title": "Diff Gate — Review agent-authored changes before merge",
+      "lang": "en",
+      "h1": [
+        "Review agent-authored changes before merge"
+      ],
+      "mains": 1,
+      "description": "Review agent-authored changes with required owners and test evidence before merge.",
+      "canonical": "https://agent-diff-gate.sociobot.in/",
+      "ogTitle": "Diff Gate — Review agent-authored changes before merge",
+      "ogDescription": "Review agent-authored changes with required owners and test evidence before merge.",
+      "ogImage": "/social.webp",
+      "twitter": "summary_large_image",
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg",
+      "apple": "https://agent-diff-gate.sociobot.in/apple-touch-icon.png",
+      "headers": [
+        "≡ Diff Gate",
+        "Demo",
+        "How it works",
+        "Privacy"
+      ],
+      "footer": [
+        "Review agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0"
+      ],
+      "overflow": false,
+      "serious": [],
+      "errors": []
+    },
+    {
+      "profile": "desktop",
+      "path": "/demo",
+      "status": 200,
+      "title": "Demo — Diff Gate",
+      "lang": "en",
+      "h1": [
+        "See an agent-authored change under review"
+      ],
+      "mains": 1,
+      "description": "Inspect a sample agent-authored change review packet without saving data.",
+      "canonical": "https://agent-diff-gate.sociobot.in/demo",
+      "ogTitle": "Demo — Diff Gate",
+      "ogDescription": "Inspect a sample agent-authored change review packet without saving data.",
+      "ogImage": "/social.webp",
+      "twitter": "summary_large_image",
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg",
+      "apple": "https://agent-diff-gate.sociobot.in/apple-touch-icon.png",
+      "headers": [
+        "≡ Diff Gate",
+        "Demo",
+        "How it works",
+        "Privacy"
+      ],
+      "footer": [
+        "Review agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0"
+      ],
+      "overflow": false,
+      "serious": [],
+      "errors": []
+    },
+    {
+      "profile": "desktop",
+      "path": "/privacy",
+      "status": 200,
+      "title": "Privacy — Diff Gate",
+      "lang": "en",
+      "h1": [
+        "How Diff Gate handles review data"
+      ],
+      "mains": 1,
+      "description": "How Diff Gate handles sample data and team review packets.",
+      "canonical": "https://agent-diff-gate.sociobot.in/privacy",
+      "ogTitle": "Privacy — Diff Gate",
+      "ogDescription": "How Diff Gate handles sample data and team review packets.",
+      "ogImage": "/social.webp",
+      "twitter": "summary_large_image",
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg",
+      "apple": "https://agent-diff-gate.sociobot.in/apple-touch-icon.png",
+      "headers": [
+        "≡ Diff Gate",
+        "Demo",
+        "How it works",
+        "Privacy"
+      ],
+      "footer": [
+        "Review agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0"
+      ],
+      "overflow": false,
+      "serious": [],
+      "errors": []
+    },
+    {
+      "profile": "desktop",
+      "path": "/terms",
+      "status": 200,
+      "title": "Terms — Diff Gate",
+      "lang": "en",
+      "h1": [
+        "Terms for using Diff Gate"
+      ],
+      "mains": 1,
+      "description": "Terms for using Diff Gate with your team's repositories.",
+      "canonical": "https://agent-diff-gate.sociobot.in/terms",
+      "ogTitle": "Terms — Diff Gate",
+      "ogDescription": "Terms for using Diff Gate with your team's repositories.",
+      "ogImage": "/social.webp",
+      "twitter": "summary_large_image",
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg",
+      "apple": "https://agent-diff-gate.sociobot.in/apple-touch-icon.png",
+      "headers": [
+        "≡ Diff Gate",
+        "Demo",
+        "How it works",
+        "Privacy"
+      ],
+      "footer": [
+        "Review agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0"
+      ],
+      "overflow": false,
+      "serious": [],
+      "errors": []
+    },
+    {
+      "profile": "desktop",
+      "path": "/missing-review-2",
+      "status": 404,
+      "title": "Not found — Diff Gate",
+      "lang": "en",
+      "h1": [
+        "This review desk is empty"
+      ],
+      "mains": 1,
+      "description": "The requested Diff Gate page does not exist.",
+      "canonical": null,
+      "ogTitle": null,
+      "ogDescription": null,
+      "ogImage": null,
+      "twitter": null,
+      "favicon": "https://agent-diff-gate.sociobot.in/favicon.svg",
+      "apple": null,
+      "headers": [
+        "≡ Diff Gate",
+        "Demo",
+        "Privacy"
+      ],
+      "footer": [
+        "Review agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0"
+      ],
+      "overflow": false,
+      "serious": [],
+      "errors": [
+        "Failed to load resource: the server responded with a status of 404 ()"
+      ]
+    }
+  ],
+  "links": [
+    {
+      "href": "https://agent-diff-gate.sociobot.in/",
+      "status": 200,
+      "location": null
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/",
+      "status": 200,
+      "location": null
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/?demo=1",
+      "status": 200,
+      "location": null
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/",
+      "status": 200,
+      "location": null
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/privacy",
+      "status": 200,
+      "location": null
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/auth/entra",
+      "status": 307,
+      "location": "https://sociobotcustomers.ciamlogin.com/35c6fe40-0ec0-46b6-98c6-213ad4de6650/oauth2/v2.0/authorize?client_id=25c704f4-465a-47af-80ab-2c489466b697&redirect_uri=https%3A%2F%2Fagent-diff-gate.sociobot.in%2Fauth%2Fcallback&response_type=code&response_mode=query&scope=openid+profile+email&state=b4c06b79-b1d1-4198-8fdc-f0fc5a22e9cf&nonce=ac0df3c8-9970-46ea-a362-c17b9e45b5ce&code_challenge=51_TosbC0BxOEOqYgE5MND7hwwK0MiurVP-0lbqO9BM&code_challenge_method=S256"
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/terms",
+      "status": 200,
+      "location": null
+    }
+  ],
+  "navigation": {
+    "privacyUrl": "https://agent-diff-gate.sociobot.in/privacy",
+    "privacyFocus": true,
+    "backUrl": "https://agent-diff-gate.sociobot.in/",
+    "homeFocus": true
+  },
+  "assets": {
+    "/social.webp": {
+      "status": 200,
+      "type": "image/webp",
+      "length": 136498
+    },
+    "/favicon.svg": {
+      "status": 200,
+      "type": "image/svg+xml",
+      "length": 254
+    },
+    "/apple-touch-icon.png": {
+      "status": 200,
+      "type": "image/png",
+      "length": 84659
+    },
+    "/robots.txt": {
+      "status": 200,
+      "type": "text/plain",
+      "length": 23
+    },
+    "/sitemap.xml": {
+      "status": 200,
+      "type": "text/xml",
+      "length": 356
+    }
+  }
+}
