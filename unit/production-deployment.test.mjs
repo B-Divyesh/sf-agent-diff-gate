@@ -18,6 +18,7 @@ const runtime = {
 };
 const image = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:repair-sha';
 const storageName = 'agent-diff-gate-data-v4';
+const verifier15CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:43c2f38a2e95';
 
 function factoryStatelessApp() {
   return {
@@ -49,6 +50,13 @@ function verifier14LiveApp() {
   return app;
 }
 
+function verifier15LiveApp() {
+  const app = factoryStatelessApp();
+  app.properties.template.containers[0].image = verifier15CandidateImage;
+  app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
+  return app;
+}
+
 test('regression: verifier 14 generic three-replica deployment is rejected in full', () => {
   // This is the failing Azure control-plane shape recorded by verification 14:
   // a candidate image but only PORT, three possible replicas, and no volume.
@@ -68,6 +76,40 @@ test('regression: verifier 14 generic three-replica deployment is rejected in fu
   ]);
   assert.throws(
     () => assertProductionContract(failingLiveConfiguration, { image, storageName, runtime }),
+    /Unsafe production configuration/,
+  );
+});
+
+test('regression: verifier 15 candidate image cannot pass with the generic stateless topology', () => {
+  // This is the precise control-plane shape reported in verification 15. The
+  // candidate image itself is not evidence of a safe release: SQLite also
+  // needs its single-replica limit, Azure Files mount, and complete runtime
+  // contract.
+  const errors = productionContractErrors(verifier15LiveApp(), {
+    image: verifier15CandidateImage,
+    storageName,
+    runtime,
+  });
+
+  assert.deepEqual(errors, [
+    'SQLite requires exactly one replica',
+    'Azure Files volume data must use agent-diff-gate-data-v4',
+    'Azure Files volume data must be mounted at /data',
+    'DATABASE_URL must match the production contract',
+    'PUBLIC_BASE_URL must match the production contract',
+    'ENTRA_AUTHORITY must match the production contract',
+    'ENTRA_TENANT_ID must match the production contract',
+    'ENTRA_CLIENT_ID must match the production contract',
+    'ENTRA_TEAM_CLAIM must match the production contract',
+    'DEPLOYMENT_CONFIG_VERSION must match the production contract',
+  ]);
+  assert.throws(
+    () =>
+      assertProductionContract(verifier15LiveApp(), {
+        image: verifier15CandidateImage,
+        storageName,
+        runtime,
+      }),
     /Unsafe production configuration/,
   );
 });
