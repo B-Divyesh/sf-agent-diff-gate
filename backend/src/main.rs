@@ -140,6 +140,7 @@ struct Health {
 struct AuthStatus {
     authenticated: bool,
     entra_sign_in_configured: bool,
+    github_app_setup_available: bool,
     github_app_configured: bool,
     install_url: Option<String>,
     user: Option<String>,
@@ -387,6 +388,7 @@ async fn auth_status(
     Ok(Json(AuthStatus {
         authenticated: active.is_some(),
         entra_sign_in_configured: state.identity.ready(),
+        github_app_setup_available: true,
         github_app_configured: team_app
             .as_ref()
             .and_then(|app| app.installation_id.as_ref())
@@ -2021,11 +2023,9 @@ mod tests {
             .await
             .unwrap();
         let status_body = to_bytes(status.into_body(), usize::MAX).await.unwrap();
-        assert_eq!(
-            serde_json::from_slice::<serde_json::Value>(&status_body).unwrap()
-                ["entra_sign_in_configured"],
-            true
-        );
+        let status_json: serde_json::Value = serde_json::from_slice(&status_body).unwrap();
+        assert_eq!(status_json["entra_sign_in_configured"], true);
+        assert_eq!(status_json["github_app_setup_available"], true);
         let redirect = service
             .oneshot(
                 Request::get("/auth/entra")

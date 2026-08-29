@@ -64,7 +64,7 @@ Diff Gate costs **$12 per developer per month** or **$99 per team per month**. T
 
 The root `Dockerfile` builds the Vite frontend and Rust server. The image listens on `PORT=8080`, has no required environment variables, and serves `/health` with the build SHA. Mount `/data` for durable packet storage.
 
-Run `scripts/deploy-production.sh` from an authenticated factory worker. It uses the container work-order helper, reapplies the approved public Entra settings that helper would otherwise replace, and runs the live identity regression. Administrator-provisioned `GITHUB_APP_PRIVATE_KEY` values must use a Key Vault secret reference. The team self-provisioning flow stores GitHub's generated private App key only in the team-scoped backend database.
+Run `scripts/deploy-production.sh` from an authenticated factory worker. It uses the container work-order helper, reapplies the approved public Entra settings that helper would otherwise replace, mounts the product's Azure Files `/data` share, and runs the live identity regression. Production uses one replica and SQLite's single-process `unix-none` VFS because Azure Files does not provide SQLite byte-range locking. Administrator-provisioned `GITHUB_APP_PRIVATE_KEY` values must use a Key Vault secret reference. The team self-provisioning flow stores GitHub's generated private App key only in the team-scoped backend database.
 
 ## Privacy
 
