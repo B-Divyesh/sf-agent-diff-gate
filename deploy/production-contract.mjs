@@ -68,7 +68,8 @@ export function renderProductionTemplate(app, { image, storageName, runtime }) {
 }
 
 function matchingEnvironment(container, name, value) {
-  return (container.env ?? []).filter(entry => entry.name === name && entry.value === value).length === 1;
+  const entries = (container.env ?? []).filter(entry => entry.name === name);
+  return entries.length === 1 && entries[0].value === value;
 }
 
 export function productionContractErrors(app, { image, storageName, runtime }) {
@@ -84,17 +85,16 @@ export function productionContractErrors(app, { image, storageName, runtime }) {
   }
   if (applicationContainers.length !== 1) errors.push('exactly one app container is required');
   if (container && image && container.image !== image) errors.push(`app image must be ${image}`);
+  const dataVolumes = (template?.volumes ?? []).filter(volume => volume.name === 'data');
   if (
-    (template?.volumes ?? []).filter(
-      volume => volume.name === 'data' && volume.storageType === 'AzureFile' && volume.storageName === storageName,
-    ).length !== 1
+    dataVolumes.length !== 1 ||
+    dataVolumes[0].storageType !== 'AzureFile' ||
+    dataVolumes[0].storageName !== storageName
   ) {
     errors.push(`Azure Files volume data must use ${storageName}`);
   }
-  if (
-    container &&
-    (container.volumeMounts ?? []).filter(mount => mount.volumeName === 'data' && mount.mountPath === '/data').length !== 1
-  ) {
+  const dataMounts = (container?.volumeMounts ?? []).filter(mount => mount.volumeName === 'data');
+  if (dataMounts.length !== 1 || dataMounts[0].mountPath !== '/data') {
     errors.push('Azure Files volume data must be mounted at /data');
   }
   for (const entry of requiredEnvironment(runtime)) {

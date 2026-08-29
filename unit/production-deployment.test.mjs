@@ -42,15 +42,17 @@ function factoryStatelessApp() {
   };
 }
 
-function verifier13LiveApp() {
+function verifier14LiveApp() {
   const app = factoryStatelessApp();
   app.properties.template.containers[0].image = image;
   app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
   return app;
 }
 
-test('regression: verifier 13 three-replica ephemeral production shape is rejected in full', () => {
-  const failingLiveConfiguration = verifier13LiveApp();
+test('regression: verifier 14 generic three-replica deployment is rejected in full', () => {
+  // This is the failing Azure control-plane shape recorded by verification 14:
+  // a candidate image but only PORT, three possible replicas, and no volume.
+  const failingLiveConfiguration = verifier14LiveApp();
   const errors = productionContractErrors(failingLiveConfiguration, { image, storageName, runtime });
   assert.deepEqual(errors, [
     'SQLite requires exactly one replica',
@@ -68,6 +70,21 @@ test('regression: verifier 13 three-replica ephemeral production shape is reject
     () => assertProductionContract(failingLiveConfiguration, { image, storageName, runtime }),
     /Unsafe production configuration/,
   );
+});
+
+test('regression: a duplicate managed variable or data mount cannot mask an unsafe contract', () => {
+  const template = renderProductionTemplate(factoryStatelessApp(), { image, storageName, runtime });
+  template.containers[0].env.push({ name: 'DATABASE_URL', value: 'sqlite:/tmp/split.db?mode=rwc' });
+  template.containers[0].volumeMounts.push({ volumeName: 'data', mountPath: '/tmp' });
+
+  const errors = productionContractErrors(
+    { properties: { configuration: { activeRevisionsMode: 'Single' }, template } },
+    { image, storageName, runtime },
+  );
+  assert.deepEqual(errors, [
+    'Azure Files volume data must be mounted at /data',
+    'DATABASE_URL must match the production contract',
+  ]);
 });
 
 test('regression: one render atomically installs the image and durable SQLite contract', () => {
