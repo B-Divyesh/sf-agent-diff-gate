@@ -23,6 +23,7 @@ const verifier15CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate
 const verifier16CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:88c392a7825d';
 const verifier17CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:cfdd80845d42';
 const verifier19CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:9df61fc1e555';
+const verifier20CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:a1eaeea89db';
 
 function factoryStatelessApp() {
   return {
@@ -102,6 +103,26 @@ function verifier19LiveApp() {
   const app = factoryStatelessApp();
   app.properties.latestRevisionName = 'sf-agent-diff-gate--0000073';
   app.properties.template.containers[0].image = verifier19CandidateImage;
+  app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
+  app.properties.template.scale = {
+    cooldownPeriod: 300,
+    maxReplicas: 3,
+    minReplicas: 1,
+    pollingInterval: 30,
+    rules: null,
+  };
+  return app;
+}
+
+function verifier20LiveApp() {
+  // Exact read-only control-plane capture from verification 20. The frontend
+  // image was the tested candidate, but the generic deployment left it with
+  // only PORT, no Azure Files mount, and one-to-three replicas. The app
+  // correctly failed closed, which also made Entra and real team work
+  // unavailable.
+  const app = factoryStatelessApp();
+  app.properties.latestRevisionName = 'sf-agent-diff-gate--0000074';
+  app.properties.template.containers[0].image = verifier20CandidateImage;
   app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
   app.properties.template.scale = {
     cooldownPeriod: 300,
@@ -300,6 +321,51 @@ test('regression: verifier 19 exact PORT-only topology and 80-request allowance 
   };
   assert.doesNotThrow(() =>
     assertProductionContract(repaired, { image: verifier19CandidateImage, storageName, runtime }),
+  );
+});
+
+test('regression: verifier 20 candidate deployment is rejected, then rendered ready for real team work', () => {
+  const failingLiveConfiguration = verifier20LiveApp();
+  const errors = productionContractErrors(failingLiveConfiguration, {
+    image: verifier20CandidateImage,
+    storageName,
+    runtime,
+  });
+
+  assert.deepEqual(errors, [
+    'SQLite requires exactly one replica',
+    'Azure Files volume data must use agent-diff-gate-data-v4',
+    'Azure Files volume data must be mounted at /data',
+    'DATABASE_URL must match the production contract',
+    'PUBLIC_BASE_URL must match the production contract',
+    'ENTRA_AUTHORITY must match the production contract',
+    'ENTRA_TENANT_ID must match the production contract',
+    'ENTRA_CLIENT_ID must match the production contract',
+    'ENTRA_TEAM_CLAIM must match the production contract',
+    'DEPLOYMENT_CONFIG_VERSION must match the production contract',
+  ]);
+  assert.throws(
+    () =>
+      assertProductionContract(failingLiveConfiguration, {
+        image: verifier20CandidateImage,
+        storageName,
+        runtime,
+      }),
+    /Unsafe production configuration/,
+  );
+
+  const repaired = {
+    properties: {
+      configuration: { activeRevisionsMode: 'Single' },
+      template: renderProductionTemplate(failingLiveConfiguration, {
+        image: verifier20CandidateImage,
+        storageName,
+        runtime,
+      }),
+    },
+  };
+  assert.doesNotThrow(() =>
+    assertProductionContract(repaired, { image: verifier20CandidateImage, storageName, runtime }),
   );
 });
 
