@@ -26,7 +26,8 @@ assert_control_plane
 
 wait_for_health() {
   for _attempt in $(seq 1 48); do
-    if health=$(curl --fail --silent "$base_url/health") && printf '%s' "$health" | jq -e '.status == "ok" and (.storage_id | type == "string" and length > 0)' >/dev/null; then
+    if health=$(curl --fail --silent "$base_url/health") && printf '%s' "$health" | jq -e --arg build "$expected_build" \
+      '.status == "ok" and .build == $build and (.storage_id | type == "string" and length > 0)' >/dev/null; then
       printf '%s' "$health"
       return 0
     fi
