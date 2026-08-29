@@ -1,0 +1,12 @@
+{
+  "counts": {
+    "200": 40,
+    "429": 40
+  },
+  "sample429": {
+    "i": 32,
+    "status": 429,
+    "retryAfter": "1",
+    "body": "Too many requests. Try again in one second."
+  }
+}

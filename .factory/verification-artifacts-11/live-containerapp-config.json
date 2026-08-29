@@ -1,0 +1,51 @@
+{
+  "activeRevisionsMode": "Single",
+  "containers": [
+    {
+      "env": [
+        {
+          "name": "PORT",
+          "value": "8080"
+        }
+      ],
+      "image": "sociobotregistry.azurecr.io/sf-agent-diff-gate:076df6c3aaf5",
+      "name": "app",
+      "volumeMounts": null
+    }
+  ],
+  "ingress": {
+    "additionalPortMappings": null,
+    "allowInsecure": false,
+    "clientCertificateMode": null,
+    "corsPolicy": null,
+    "customDomains": [
+      {
+        "bindingType": "SniEnabled",
+        "certificateId": "/subscriptions/283af945-693b-4a6e-b952-df928d0a18a9/resourceGroups/sociobot/providers/Microsoft.App/managedEnvironments/factory-env/managedCertificates/cert-agent-diff-gate",
+        "name": "agent-diff-gate.sociobot.in"
+      }
+    ],
+    "exposedPort": 0,
+    "external": true,
+    "fqdn": "sf-agent-diff-gate.orangepond-1638693f.eastus2.azurecontainerapps.io",
+    "ipSecurityRestrictions": null,
+    "stickySessions": null,
+    "targetPort": 8080,
+    "traffic": [
+      {
+        "latestRevision": true,
+        "weight": 100
+      }
+    ],
+    "transport": "Auto"
+  },
+  "latestRevision": "sf-agent-diff-gate--0000039",
+  "scale": {
+    "cooldownPeriod": 300,
+    "maxReplicas": 3,
+    "minReplicas": 1,
+    "pollingInterval": 30,
+    "rules": null
+  },
+  "volumes": null
+}

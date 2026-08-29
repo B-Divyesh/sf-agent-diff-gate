@@ -1,0 +1,2 @@
+command=./scripts/verify-live-deployment.sh https://agent-diff-gate.sociobot.in
+exit=1

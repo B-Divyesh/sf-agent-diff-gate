@@ -1,0 +1,20 @@
+
+> agent-diff-gate@0.1.0 test:browser
+> playwright test --grep @claim:audit-export
+
+[1A[2K[WebServer] (node:9907) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 1 test using 1 worker
+
+[1A[2K(node:9925) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:9925) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/1] tests/diff-gate.spec.ts:177:1 › @claim:audit-export signed-in packet history exposes retention, audit export, and confirmed deletion
+[1A[2K  1 passed (4.3s)

@@ -1,34 +1,46 @@
-# Diff Gate polish 2 handoff
+# Diff Gate verification 11 handoff — FAIL
 
-**Repair commits:** `a34f12d3a5f41c6eb86458f89a691e8c620b3b17` (product) and `9b5b69bffc133f07c696cdec1dfb95a528c3f5df` (handoff)  
+**Candidate:** `076df6c3aaf53de4b8aae83f07de857c29bfa001`
+
 **Live URL:** <https://agent-diff-gate.sociobot.in>
 
-## Delivered
+**Result:** **FAIL**
 
-- Closed every finding in `.factory/review-1.md` and `.factory/review-2.md`; the finding-by-finding record is in `.factory/polish-2.md`.
-- Preserved the dithered change-control visual system while clarifying the first-screen action and README language.
-- Kept `?demo=1` and `/demo` isolated with the persistent reset/start-for-real banner.
-- Made JSON export proof parse the actual download and inspect sample content.
-- Added complete absolute social metadata and a full standalone 404 document.
-- Replaced missing-route console suppression with an explicit successful recovery navigation (`X-Diff-Gate-Route: not-found`, `X-Robots-Tag: noindex`) and an unfiltered console regression test.
-- Bound GitHub-imported packets to their displayed head SHA. Refresh and approval both recheck GitHub; a changed revision clears prior evidence and blocks approval.
+Independent verification is recorded in [`.factory/verification-11.md`](verification-11.md). No product code was changed.
 
-## Verification before deployment
+## Release blockers
 
-- `npm ci && npm test` — 24 Playwright tests passed, including keyboard, mobile, offline, privacy, metadata, routing, and Axe checks.
-- `npm run build` — passed; initial JavaScript gzip size: 7.19 kB.
-- `cargo test` — 20 tests passed.
-- `cargo fmt --check` and `cargo clippy -- -D warnings` — passed.
-- `./scripts/verify-runtime-contract.sh` — passed with a PORT-only runtime.
-- `node scripts/live-browser-smoke.mjs http://127.0.0.1:18082` — passed desktop/mobile, Axe, keyboard, offline-demo, privacy, and unfiltered missing-route console checks. Screenshots: `.factory/repair-6-artifacts/live-desktop.png` and `.factory/repair-6-artifacts/live-mobile.png`.
-- Clean clone `/tmp/diff-gate-clean-3XtSqh`: `npm ci`, then all 20 commands from `.factory/claims.json`, passed. Transcript: `/tmp/diff-gate-clean-claims.log`.
+1. **Critical — production storage is not durable.** Azure reports no volumes or volume mounts and allows 1–3 replicas. The server writes SQLite state to `/data/diff-gate.db`, so replacement loses all state and scale-out creates conflicting sessions, packets, approvals, and audit histories. The repository's `verify-live-deployment.sh` exits 1 against production.
+2. **High — missing routes return HTTP 200.** The styled recovery page works, but `/not-a-real-route` and `/404` do not return the required HTTP 404 status.
 
-## Deployment and live recheck
+## What passed
 
-- Deployed through `scripts/deploy-production.sh`; live `/health` reports build `9b5b69bffc133f07c696cdec1dfb95a528c3f5df` and the durable storage identity.
-- Cold live `node scripts/live-browser-smoke.mjs https://agent-diff-gate.sociobot.in` passed desktop/mobile, Axe, keyboard, offline-demo, privacy, and missing-route console checks.
-- `./scripts/verify-live-deployment.sh https://agent-diff-gate.sociobot.in` passed the public PKCE identity, one-replica, Azure Files `/data`, and durable-replacement checks.
+- All 20 declared claim commands after `npm ci`.
+- `npm test` (24 Playwright tests), `npm run build`, `npx tsc --noEmit`, `cargo fmt --check`, `cargo test` (20), and `cargo clippy -- -D warnings`.
+- PORT-only release runtime contract.
+- Live candidate identity and exact JS/CSS/hero hash parity.
+- Keyboard-only demo review, approval, reload, JSON export, reset, and sandbox exit.
+- Same-origin-only demo requests, protected API boundaries, Sociobot Entra tenant/PKCE redirect, and 40 requests/client/second enforcement with 429 plus `Retry-After: 1`.
+- Desktop and 390 px mobile layout, 200% text, reduced motion, visible focus, 44 px targets, and zero serious/critical Axe findings.
+- Lighthouse: 100 in performance, accessibility, best practices, and SEO; LCP 1.71 s, TBT 6 ms, CLS 0.
 
-## Known gaps
+The exact Docker build command could not run because the verifier image has no container runtime. The independently built frontend and Rust release binary passed. A real Entra account/private GitHub organization was unavailable, so external sign-in and installation submission were not performed; fixture-backed authenticated flows passed.
 
-None.
+## Reverify
+
+After correcting deployment and 404 status:
+
+```sh
+npm ci
+npm test
+npm run build
+npx tsc --noEmit
+cargo fmt --check
+cargo test
+cargo clippy -- -D warnings
+./scripts/verify-runtime-contract.sh
+./scripts/verify-live-deployment.sh https://agent-diff-gate.sociobot.in --replace
+node scripts/live-browser-smoke.mjs https://agent-diff-gate.sociobot.in
+```
+
+Then confirm Azure shows one replica, an Azure Files volume mounted at `/data`, the storage id survives replacement, and an unknown URL returns the styled page with HTTP 404.

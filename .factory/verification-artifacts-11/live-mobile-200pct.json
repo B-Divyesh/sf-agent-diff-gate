@@ -1,0 +1,30 @@
+{
+  "overflow": 0,
+  "links": [
+    {
+      "text": "Demo",
+      "x": 19.5,
+      "right": 189,
+      "width": 169.5,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "text": "How it works",
+      "x": 201,
+      "right": 370.5,
+      "width": 169.5,
+      "height": 44,
+      "visible": true
+    },
+    {
+      "text": "Privacy",
+      "x": 19.5,
+      "right": 189,
+      "width": 169.5,
+      "height": 44,
+      "visible": true
+    }
+  ],
+  "errors": []
+}

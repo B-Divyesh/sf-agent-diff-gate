@@ -1,0 +1,115 @@
+{
+  "status": 200,
+  "url": "https://agent-diff-gate.sociobot.in/",
+  "title": "Diff Gate — Review agent-authored changes before merge",
+  "lang": "en",
+  "h1": [
+    "Review agent-authored changes before merge"
+  ],
+  "main": true,
+  "viewportText": "Skip to content\n≡ Diff Gate\nDemo\nHow it works\nPrivacy\n\nDiff Gate home\n\nREVIEW PACKETS FOR AGENT-AUTHORED CHANGES\n\nReview agent-authored changes before merge\n\nFor small software teams that need a required owner and test evidence before an agent-authored change lands.\n\nTry it with sample data\nOpens a sample packet with changed files, test evidence, and owner checks.\nSample data stays in this browser.\nSigned-in teams see only their review packets.\nExport the sample packet as JSON.\nCHECK\n\nREVIEW PACKET\n\nReview a pull request\n\nTEAM REVIEW\n\nSign in before reviewing repository changes\n\nPackets are visible only to their signed-in team.\n\nSign in with Sociobot\n\nHOW IT WORKS\n\nHow review packets work\nSign in.\nOpen your team review workspace.\nSet repository policy.\nName sensitive paths and the required owner.\nRecord evidence.\nSave test evidence before the required owner approves.\nWhat Diff Gate does not do\n\nDiff Gate records a review decision. Your team merges code outside Diff Gate.\n\nReview agent-authored changes before merge.\nPrivacy\nTerms\nBuilt by Param Factory\nv0.5.0",
+  "actions": [
+    {
+      "text": "≡ Diff Gate",
+      "tag": "A",
+      "href": "https://agent-diff-gate.sociobot.in/",
+      "rect": {
+        "x": 72,
+        "y": 12,
+        "width": 98.203125,
+        "height": 47.109375,
+        "top": 12,
+        "right": 170.203125,
+        "bottom": 59.109375,
+        "left": 72
+      }
+    },
+    {
+      "text": "Demo",
+      "tag": "A",
+      "href": "https://agent-diff-gate.sociobot.in/?demo=1",
+      "rect": {
+        "x": 1156.859375,
+        "y": 13.546875,
+        "width": 44,
+        "height": 44,
+        "top": 13.546875,
+        "right": 1200.859375,
+        "bottom": 57.546875,
+        "left": 1156.859375
+      }
+    },
+    {
+      "text": "How it works",
+      "tag": "A",
+      "href": "https://agent-diff-gate.sociobot.in/#how",
+      "rect": {
+        "x": 1212.859375,
+        "y": 13.546875,
+        "width": 90.6875,
+        "height": 44,
+        "top": 13.546875,
+        "right": 1303.546875,
+        "bottom": 57.546875,
+        "left": 1212.859375
+      }
+    },
+    {
+      "text": "Privacy",
+      "tag": "A",
+      "href": "https://agent-diff-gate.sociobot.in/privacy",
+      "rect": {
+        "x": 1315.546875,
+        "y": 13.546875,
+        "width": 52.453125,
+        "height": 44,
+        "top": 13.546875,
+        "right": 1368,
+        "bottom": 57.546875,
+        "left": 1315.546875
+      }
+    },
+    {
+      "text": "Try it with sample data",
+      "tag": "BUTTON",
+      "href": null,
+      "rect": {
+        "x": 192,
+        "y": 599.296875,
+        "width": 207.609375,
+        "height": 46.3125,
+        "top": 599.296875,
+        "right": 399.609375,
+        "bottom": 645.609375,
+        "left": 192
+      }
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-CeXtr7Mp.js"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-rQ7R4Jb-.css"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/api/auth/status"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/change-control.webp"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/favicon.svg"
+    }
+  ],
+  "errors": []
+}

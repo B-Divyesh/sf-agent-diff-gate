@@ -1,0 +1,20 @@
+
+> agent-diff-gate@0.1.0 test:browser
+> playwright test --grep @claim:mobile-first-action
+
+[1A[2K[WebServer] (node:9548) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 1 test using 1 worker
+
+[1A[2K(node:9566) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:9566) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/1] tests/diff-gate.spec.ts:39:1 › @claim:mobile-first-action keeps the sample action inside the first phone screen
+[1A[2K  1 passed (3.6s)

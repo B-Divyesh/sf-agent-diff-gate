@@ -1,0 +1,5 @@
+
+> agent-diff-gate@0.1.0 test:live-identity
+> ./scripts/verify-live-identity.sh
+
+Live identity configuration is ready and redirects only to Sociobot Entra with PKCE.

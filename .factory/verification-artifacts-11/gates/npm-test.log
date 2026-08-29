@@ -1,0 +1,51 @@
+
+> agent-diff-gate@0.1.0 test
+> vitest run --passWithNoTests && playwright test
+
+
+ RUN  v3.2.7 /work/repo/frontend
+
+No test files found, exiting with code 0
+
+include: **/*.{test,spec}.?(c|m)[jt]s?(x)
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+[1A[2K[WebServer] (node:10327) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 24 tests using 1 worker
+
+[1A[2K(node:10345) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:10345) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/24] tests/diff-gate.spec.ts:15:1 › @claim:sample-sandbox keeps sample data isolated and discards it when demo mode ends
+[1A[2K[2/24] tests/diff-gate.spec.ts:28:1 › @claim:demo-query-path opens an isolated sample with banner controls and reset
+[1A[2K[3/24] tests/diff-gate.spec.ts:39:1 › @claim:mobile-first-action keeps the sample action inside the first phone screen
+[1A[2K[4/24] tests/diff-gate.spec.ts:51:1 › @claim:no-third-party-runtime sends no demo data off-origin
+[1A[2K[5/24] tests/diff-gate.spec.ts:61:1 › @claim:packet-export exports the review packet as JSON
+[1A[2K[6/24] tests/diff-gate.spec.ts:83:1 › @claim:no-merge-action records a demo decision without calling a code-hosting service
+[1A[2K[7/24] tests/diff-gate.spec.ts:94:1 › keyboard review can resolve every flagged check
+[1A[2K[8/24] tests/diff-gate.spec.ts:101:1 › demo state is isolated in its namespace and reset restores the shipped packet
+[1A[2K[9/24] tests/diff-gate.spec.ts:111:1 › 390px mobile view has no horizontal overflow and retains keyboard targets
+[1A[2K[10/24] tests/diff-gate.spec.ts:119:1 › 390px mobile header reflows without clipping at 200% text size
+[1A[2K[11/24] tests/diff-gate.spec.ts:133:1 › loaded demo remains reviewable when the browser goes offline
+[1A[2K[12/24] tests/diff-gate.spec.ts:141:1 › demo has no serious or critical axe findings
+[1A[2K[13/24] tests/diff-gate.spec.ts:149:1 › dark mode has no serious or critical axe findings on every public route
+[1A[2K[14/24] tests/diff-gate.spec.ts:163:1 › light mode has no serious or critical axe findings on every public route
+[1A[2K[15/24] tests/diff-gate.spec.ts:177:1 › @claim:audit-export signed-in packet history exposes retention, audit export, and confirmed deletion
+[1A[2K[16/24] tests/diff-gate.spec.ts:221:1 › signed-in teams can start the real GitHub App setup when no installation exists
+[1A[2K[17/24] tests/diff-gate.spec.ts:235:1 › header demo route and browser Back always restore the demo sandbox
+[1A[2K[18/24] tests/diff-gate.spec.ts:248:1 › demo approval is retained after reload once every check is resolved
+[1A[2K[19/24] tests/diff-gate.spec.ts:259:1 › navigation and footer links meet 44px touch targets at 390px
+[1A[2K[20/24] tests/diff-gate.spec.ts:269:1 › every rendered demo control has a 44px minimum target at 390px
+[1A[2K[21/24] tests/diff-gate.spec.ts:280:1 › public routes set their own plain-language title, canonical URL, and focused h1
+[1A[2K[22/24] tests/diff-gate.spec.ts:295:1 › public routes declare complete absolute social metadata
+[1A[2K[23/24] tests/diff-gate.spec.ts:309:1 › unknown route renders the recovery view without console errors
+[1A[2K[24/24] tests/diff-gate.spec.ts:317:1 › dedicated 404 document keeps the public header and metadata
+[1A[2K  24 passed (25.2s)

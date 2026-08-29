@@ -1,0 +1,9 @@
+GET   /api/packets                     401 {"error":"Sign in with Sociobot before opening team packets."}
+POST  /api/packets                     422 Failed to deserialize the JSON body into the target type: missing field `title` at line 1 column 2
+GET   /api/settings                    401 {"error":"Sign in with Sociobot before opening team packets."}
+PUT   /api/settings                    422 Failed to deserialize the JSON body into the target type: missing field `retention_days` at line 1 column 2
+GET   /api/repository-policies         401 {"error":"Sign in with Sociobot before opening team packets."}
+PUT   /api/repository-policies         422 Failed to deserialize the JSON body into the target type: missing field `repository` at line 1 column 2
+POST  /api/github/import               422 Failed to deserialize the JSON body into the target type: missing field `pr_url` at line 1 column 2
+POST  /api/auth/signout                204 
+GET   /auth/github/new                 401 {"error":"Sign in with Sociobot before opening team packets."}

@@ -1,0 +1,7 @@
+  1522 dist/index.html
+ 22499 dist/assets/index-CeXtr7Mp.js
+ 12233 dist/assets/index-rQ7R4Jb-.css
+136640 dist/change-control.webp
+136498 dist/social.webp
+ 84659 dist/apple-touch-icon.png
+394051 total

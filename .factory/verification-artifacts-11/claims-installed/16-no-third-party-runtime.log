@@ -1,0 +1,20 @@
+
+> agent-diff-gate@0.1.0 test:browser
+> playwright test --grep @claim:no-third-party-runtime
+
+[1A[2K[WebServer] (node:10038) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 1 test using 1 worker
+
+[1A[2K(node:10056) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:10056) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/1] tests/diff-gate.spec.ts:51:1 › @claim:no-third-party-runtime sends no demo data off-origin
+[1A[2K  1 passed (4.1s)

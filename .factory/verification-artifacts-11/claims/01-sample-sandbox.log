@@ -1,0 +1,18 @@
+
+> agent-diff-gate@0.1.0 test:browser
+> playwright test --grep @claim:sample-sandbox
+
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@playwright/test' imported from /work/repo/playwright.config.ts
+    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:314:9)
+    at packageResolve (node:internal/modules/esm/resolve:768:81)
+    at moduleResolve (node:internal/modules/esm/resolve:855:18)
+    at defaultResolve (node:internal/modules/esm/resolve:985:11)
+    at nextResolve (node:internal/modules/esm/hooks:748:28)
+    at resolve (/usr/lib/node_modules/playwright/lib/transform/esmLoader.js:39:24)
+    at nextResolve (node:internal/modules/esm/hooks:748:28)
+    at Hooks.resolve (node:internal/modules/esm/hooks:240:30)
+    at MessagePort.handleMessage (node:internal/modules/esm/worker:199:24)
+    at [nodejs.internal.kHybridDispatch] (node:internal/event_target:843:20)
+    at MessagePort.<anonymous> (node:internal/per_context/messageport:23:28) {
+  code: 'ERR_MODULE_NOT_FOUND'
+}

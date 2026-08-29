@@ -1,0 +1,11 @@
+HTTP/2 400 
+content-type: application/json
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+content-length: 60
+date: Sat, 29 Aug 2026 10:08:36 GMT
+
+{"error":"That Sociobot sign-in link expired. Start again."}

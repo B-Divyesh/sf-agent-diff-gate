@@ -1,0 +1,1 @@
+audit                  401 {"error":"Sign in with Sociobot before opening team packets."}

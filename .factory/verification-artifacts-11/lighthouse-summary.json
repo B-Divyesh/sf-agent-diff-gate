@@ -1,0 +1,20 @@
+{
+  "fetchTime": "2026-08-29T10:06:56.434Z",
+  "finalUrl": "https://agent-diff-gate.sociobot.in/",
+  "categories": {
+    "performance": 100,
+    "accessibility": 100,
+    "best-practices": 100,
+    "seo": 100
+  },
+  "metrics": {
+    "fcp": 956.4685,
+    "lcp": 1706.4685,
+    "tbt": 6,
+    "cls": 0,
+    "speedIndex": 956.4685,
+    "transferBytes": 174129,
+    "scriptBytes": 22590,
+    "stylesheetBytes": 12292
+  }
+}

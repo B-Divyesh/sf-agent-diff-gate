@@ -1,0 +1,194 @@
+{
+  "demo": {
+    "focus": {
+      "outline": "rgb(201, 76, 59) solid 3px",
+      "outlineColor": "rgb(201, 76, 59)",
+      "outlineWidth": "3px",
+      "boxShadow": "rgb(23, 33, 43) 4px 4px 0px 0px"
+    },
+    "opened": {
+      "url": "https://agent-diff-gate.sociobot.in/?demo=1",
+      "title": "See an agent-authored change under review",
+      "changed": [
+        "src/policy/retention.ts",
+        "db/migrations/20260828_retention.sql",
+        "src/api/export.ts"
+      ],
+      "checks": [
+        "Contract changed",
+        "Migration found",
+        "Test evidence",
+        "Risky path"
+      ],
+      "owner": "Required owner: Mira Chen",
+      "banner": "Demo — sample data, nothing is saved\nReset demoStart for real"
+    },
+    "reviewed": 2,
+    "retained": true,
+    "exported": {
+      "title": "Add organization-level retention controls",
+      "status": "approved",
+      "changedCount": 3,
+      "checkStates": [
+        "ready",
+        "done",
+        "ready",
+        "done"
+      ]
+    },
+    "reset": {
+      "approved": 0,
+      "markReviewed": 2,
+      "storage": "{\"title\":\"Add organization-level retention controls\",\"owner\":\"Mira Chen\",\"source\":\"PR #482 · agent-authored\",\"changed\":[\"src/policy/retention.ts\",\"db/migrations/20260828_retention.sql\",\"src/api/export.ts\"],\"checks\":[{\"label\":\"Contract changed\",\"detail\":\"Export API now returns retention state.\",\"state\":\"ready\"},{\"label\":\"Migration found\",\"detail\":\"Adds retention_days and backfills 14,382 rows.\",\"state\":\"risk\"},{\"label\":\"Test evidence\",\"detail\":\"pnpm test: 214 passed · migration check: passed\",\"state\":\"ready\"},{\"label\":\"Risky path\",\"detail\":\"db/migrations requires database owner sign-off.\",\"state\":\"risk\"}]}"
+    },
+    "exited": {
+      "url": "https://agent-diff-gate.sociobot.in/",
+      "storage": null,
+      "h1": "Review agent-authored changes before merge"
+    }
+  },
+  "privacy": {
+    "origins": [
+      "https://agent-diff-gate.sociobot.in"
+    ],
+    "requestCount": 10
+  },
+  "errors": [],
+  "routes": [
+    {
+      "path": "/",
+      "status": 200,
+      "title": "Diff Gate — Review agent-authored changes before merge",
+      "h1": [
+        "Review agent-authored changes before merge"
+      ],
+      "main": 1,
+      "lang": "en",
+      "canonical": "https://agent-diff-gate.sociobot.in/",
+      "seriousCritical": [],
+      "headers": {
+        "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+        "cache": "no-cache",
+        "nosniff": "nosniff",
+        "referrer": "strict-origin-when-cross-origin"
+      }
+    },
+    {
+      "path": "/demo",
+      "status": 200,
+      "title": "Demo — Diff Gate",
+      "h1": [
+        "See an agent-authored change under review"
+      ],
+      "main": 1,
+      "lang": "en",
+      "canonical": "https://agent-diff-gate.sociobot.in/demo",
+      "seriousCritical": [],
+      "headers": {
+        "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+        "cache": "no-cache",
+        "nosniff": "nosniff",
+        "referrer": "strict-origin-when-cross-origin"
+      }
+    },
+    {
+      "path": "/privacy",
+      "status": 200,
+      "title": "Privacy — Diff Gate",
+      "h1": [
+        "How Diff Gate handles review data"
+      ],
+      "main": 1,
+      "lang": "en",
+      "canonical": "https://agent-diff-gate.sociobot.in/privacy",
+      "seriousCritical": [],
+      "headers": {
+        "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+        "cache": "no-cache",
+        "nosniff": "nosniff",
+        "referrer": "strict-origin-when-cross-origin"
+      }
+    },
+    {
+      "path": "/terms",
+      "status": 200,
+      "title": "Terms — Diff Gate",
+      "h1": [
+        "Terms for using Diff Gate"
+      ],
+      "main": 1,
+      "lang": "en",
+      "canonical": "https://agent-diff-gate.sociobot.in/terms",
+      "seriousCritical": [],
+      "headers": {
+        "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+        "cache": "no-cache",
+        "nosniff": "nosniff",
+        "referrer": "strict-origin-when-cross-origin"
+      }
+    },
+    {
+      "path": "/not-a-real-route",
+      "status": 200,
+      "title": "Not found — Diff Gate",
+      "h1": [
+        "Page not found"
+      ],
+      "main": 1,
+      "lang": "en",
+      "canonical": "https://agent-diff-gate.sociobot.in/not-a-real-route",
+      "seriousCritical": [],
+      "headers": {
+        "csp": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+        "cache": "no-cache",
+        "nosniff": "nosniff",
+        "referrer": "strict-origin-when-cross-origin",
+        "route": "not-found",
+        "robots": "noindex"
+      }
+    }
+  ],
+  "links": [
+    {
+      "href": "https://agent-diff-gate.sociobot.in/#main",
+      "status": 200
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/",
+      "status": 200
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/?demo=1",
+      "status": 200
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/#how",
+      "status": 200
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/privacy",
+      "status": 200
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/auth/entra",
+      "status": 200
+    },
+    {
+      "href": "https://agent-diff-gate.sociobot.in/terms",
+      "status": 200
+    }
+  ],
+  "mobile": {
+    "actionRect": {
+      "x": 20,
+      "y": 542.203125,
+      "width": 207.609375,
+      "height": 46.3125
+    },
+    "overflow": 0,
+    "smallTargets": [],
+    "motion": [],
+    "seriousCritical": [],
+    "errors": []
+  }
+}
