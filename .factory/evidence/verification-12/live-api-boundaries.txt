@@ -1,0 +1,152 @@
+
+[auth-status] GET https://agent-diff-gate.sociobot.in/api/auth/status
+status=200
+HTTP/2 200 
+content-type: application/json
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+content-length: 162
+date: Sat, 29 Aug 2026 11:43:20 GMT
+
+body={"authenticated":false,"entra_sign_in_configured":true,"github_app_setup_available":true,"github_app_configured":false,"install_url":null,"user":null,"team":null}
+
+[list-packets] GET https://agent-diff-gate.sociobot.in/api/packets
+status=401
+HTTP/2 401 
+content-type: application/json
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+content-length: 62
+date: Sat, 29 Aug 2026 11:43:20 GMT
+
+body={"error":"Sign in with Sociobot before opening team packets."}
+
+[create-empty-title] POST https://agent-diff-gate.sociobot.in/api/packets
+status=401
+HTTP/2 401 
+content-type: application/json
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+content-length: 62
+date: Sat, 29 Aug 2026 11:43:20 GMT
+
+body={"error":"Sign in with Sociobot before opening team packets."}
+
+[put-evidence] PUT https://agent-diff-gate.sociobot.in/api/packets/missing
+status=401
+HTTP/2 401 
+content-type: application/json
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+content-length: 62
+date: Sat, 29 Aug 2026 11:43:20 GMT
+
+body={"error":"Sign in with Sociobot before opening team packets."}
+
+[approve] POST https://agent-diff-gate.sociobot.in/api/packets/missing/approve
+status=401
+HTTP/2 401 
+content-type: application/json
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+content-length: 62
+date: Sat, 29 Aug 2026 11:43:20 GMT
+
+body={"error":"Sign in with Sociobot before opening team packets."}
+
+[settings-low] PUT https://agent-diff-gate.sociobot.in/api/settings
+status=401
+HTTP/2 401 
+content-type: application/json
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+content-length: 62
+date: Sat, 29 Aug 2026 11:43:20 GMT
+
+body={"error":"Sign in with Sociobot before opening team packets."}
+
+[policy-invalid] PUT https://agent-diff-gate.sociobot.in/api/repository-policies
+status=401
+HTTP/2 401 
+content-type: application/json
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+content-length: 62
+date: Sat, 29 Aug 2026 11:43:21 GMT
+
+body={"error":"Sign in with Sociobot before opening team packets."}
+
+[github-import] POST https://agent-diff-gate.sociobot.in/api/github/import
+status=401
+HTTP/2 401 
+content-type: application/json
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+content-length: 62
+date: Sat, 29 Aug 2026 11:43:21 GMT
+
+body={"error":"Sign in with Sociobot before opening team packets."}
+
+[expired-callback] GET https://agent-diff-gate.sociobot.in/auth/callback?code=invalid&state=missing
+status=400
+HTTP/2 400 
+content-type: application/json
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+content-length: 60
+date: Sat, 29 Aug 2026 11:43:21 GMT
+
+body={"error":"That Sociobot sign-in link expired. Start again."}
+
+[missing] GET https://agent-diff-gate.sociobot.in/a-definitely-missing-route
+status=404
+HTTP/2 404 
+content-type: text/html; charset=utf-8
+x-diff-gate-route: not-found
+x-robots-tag: noindex
+content-length: 1522
+cache-control: no-cache
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+date: Sat, 29 Aug 2026 11:43:21 GMT
+
+body=<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#17212B" />
+    <meta name="description" content="Review agent-authored changes with required owners and test evidence before merge." />
+    <link rel="canonical" href="https://agent-diff-gate.sociobot.in/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:title" content="Diff Gate — Review agent-authored

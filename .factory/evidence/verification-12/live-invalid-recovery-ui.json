@@ -1,0 +1,55 @@
+{
+  "retentionBoundary": {
+    "valid": false,
+    "message": "Value must be greater than or equal to 1."
+  },
+  "callsAfterInvalidRetention": 0,
+  "retentionRecovery": "Packets will be kept for 30 days.",
+  "policyError": "Add between 1 and 20 sensitive path rules.",
+  "policyRecovery": "schema/** → database-owner@example.com",
+  "prBoundary": {
+    "valid": false,
+    "message": "Please enter a URL."
+  },
+  "callsAfterInvalidUrl": 0,
+  "importError": "Install the team GitHub App before importing a pull request.",
+  "titleBoundary": {
+    "valid": false,
+    "message": "Please fill out this field."
+  },
+  "createCalls": 0,
+  "apiCalls": [
+    {
+      "key": "GET /api/auth/status",
+      "body": null
+    },
+    {
+      "key": "GET /api/packets",
+      "body": null
+    },
+    {
+      "key": "GET /api/settings",
+      "body": null
+    },
+    {
+      "key": "GET /api/repository-policies",
+      "body": null
+    },
+    {
+      "key": "PUT /api/settings",
+      "body": "{\"retention_days\":30}"
+    },
+    {
+      "key": "PUT /api/repository-policies",
+      "body": "{\"repository\":\"acme/service\",\"rules\":[]}"
+    },
+    {
+      "key": "PUT /api/repository-policies",
+      "body": "{\"repository\":\"acme/service\",\"rules\":[{\"path\":\"schema/**\",\"required_owner\":\"database-owner@example.com\"}]}"
+    },
+    {
+      "key": "POST /api/github/import",
+      "body": "{\"pr_url\":\"https://github.com/acme/service/pull/42\"}"
+    }
+  ]
+}

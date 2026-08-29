@@ -1,0 +1,22 @@
+{
+  "activeRevisionsMode": "Single",
+  "env": [
+    {
+      "name": "PORT",
+      "value": "8080"
+    }
+  ],
+  "image": "sociobotregistry.azurecr.io/sf-agent-diff-gate:d150b3243f60",
+  "latestRevision": "sf-agent-diff-gate--0000045",
+  "provisioningState": "Succeeded",
+  "runningStatus": "Running",
+  "scale": {
+    "cooldownPeriod": 300,
+    "maxReplicas": 3,
+    "minReplicas": 1,
+    "pollingInterval": 30,
+    "rules": null
+  },
+  "volumeMounts": null,
+  "volumes": null
+}

@@ -1,0 +1,26 @@
+{
+  "firstAction": {
+    "x": 20,
+    "y": 542.203125,
+    "width": 207.609375,
+    "height": 46.3125
+  },
+  "firstViewportPass": true,
+  "demo": {
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "bodyFont": "16px",
+    "smallTargets": [],
+    "motion": []
+  },
+  "axeBlocking": [],
+  "zoom": {
+    "innerWidth": 390,
+    "visualWidth": 195,
+    "scale": 2,
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "focusedVisible": true
+  },
+  "errors": []
+}

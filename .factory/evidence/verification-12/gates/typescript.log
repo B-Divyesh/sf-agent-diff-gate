@@ -1,0 +1,3 @@
+COMMAND=npx tsc --noEmit 
+
+EXIT_STATUS=0

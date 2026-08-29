@@ -1,0 +1,26 @@
+candidate=d150b3243f60c12f3c477aa778fae94b5df7c02a
+js=/assets/index-CeXtr7Mp.js
+css=/assets/index-rQ7R4Jb-.css
+index.html local_size=1522 live_size=1522 local_sha=959fc3ec894067c330bb4a4fe96742c11bd29ab5530a9a3c707a2cbb29102768 live_sha=959fc3ec894067c330bb4a4fe96742c11bd29ab5530a9a3c707a2cbb29102768
+index-CeXtr7Mp.js local_size=22499 live_size=22499 local_sha=a25ba899e3fe7a89eee83b3862b0ea10d10b232b9ccc7269c0d5f2c0d80b47b0 live_sha=a25ba899e3fe7a89eee83b3862b0ea10d10b232b9ccc7269c0d5f2c0d80b47b0
+index-rQ7R4Jb-.css local_size=12233 live_size=12233 local_sha=f17d5315eaddad9a13022bb9a75d3a64898058ce08639db68f6651b7234c2c65 live_sha=f17d5315eaddad9a13022bb9a75d3a64898058ce08639db68f6651b7234c2c65
+change-control.webp local_size=136640 live_size=136640 local_sha=b9f805e8e10358f76695bd4cc7b2ba89550af5c6950b1b82c390aa3838cab88d live_sha=b9f805e8e10358f76695bd4cc7b2ba89550af5c6950b1b82c390aa3838cab88d
+
+Dist files (bytes):
+23 dist/robots.txt
+208 dist/manifest.webmanifest
+254 dist/favicon.svg
+356 dist/sitemap.xml
+899 dist/staticwebapp.config.json
+1522 dist/index.html
+1911 dist/404.html
+2053 dist/404.css
+12233 dist/assets/index-rQ7R4Jb-.css
+22499 dist/assets/index-CeXtr7Mp.js
+84659 dist/apple-touch-icon.png
+136498 dist/social.webp
+136640 dist/change-control.webp
+
+Gzip budgets:
+js_raw=22499 js_gzip=7223
+css_raw=12233 css_gzip=3623

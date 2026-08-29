@@ -1,0 +1,11 @@
+--- tool availability ---
+--- live health ---
+{"status":"ok","build":"d150b3243f60c12f3c477aa778fae94b5df7c02a","storage_id":"6f7615ae-236c-4e39-b103-a74eeb80c66e"}
+--- identity verifier ---
+
+> agent-diff-gate@0.1.0 test:live-identity
+> ./scripts/verify-live-identity.sh https://agent-diff-gate.sociobot.in
+
+Live identity configuration is ready and redirects only to Sociobot Entra with PKCE.
+
+--- deployment verifier (read-only) ---

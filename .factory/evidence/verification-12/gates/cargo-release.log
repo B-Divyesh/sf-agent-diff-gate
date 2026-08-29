@@ -1,0 +1,4 @@
+COMMAND=cargo build --release
+    Finished `release` profile [optimized] target(s) in 1.05s
+
+EXIT_STATUS=0

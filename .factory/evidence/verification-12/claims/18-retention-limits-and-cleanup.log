@@ -1,0 +1,12 @@
+CLAIM=retention-limits-and-cleanup
+COMMAND=cargo test retention_limits_default_and_read_cleanup_are_enforced
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 1 test
+test tests::retention_limits_default_and_read_cleanup_are_enforced ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.02s
+
+
+EXIT_STATUS=0

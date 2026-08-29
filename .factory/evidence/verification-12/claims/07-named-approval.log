@@ -1,0 +1,12 @@
+CLAIM=named-approval
+COMMAND=cargo test approval_rejects_missing_evidence_and_wrong_owner_and_persists_saved_evidence
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.76s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 1 test
+test tests::approval_rejects_missing_evidence_and_wrong_owner_and_persists_saved_evidence ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.04s
+
+
+EXIT_STATUS=0

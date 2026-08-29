@@ -1,0 +1,17 @@
+{
+  "count": 80,
+  "counts": {
+    "200": 40,
+    "429": 40
+  },
+  "retryAfterValues": [
+    "1"
+  ],
+  "firstLimited": {
+    "i": 36,
+    "status": 429,
+    "retryAfter": "1",
+    "body": "Too many requests. Try again in one second."
+  },
+  "allLimitedHaveRetryAfter": true
+}

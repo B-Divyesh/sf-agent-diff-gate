@@ -1,0 +1,145 @@
+{
+  "rootStatus": 200,
+  "firstActionBox": {
+    "x": 192,
+    "y": 599.296875,
+    "width": 207.609375,
+    "height": 46.3125
+  },
+  "firstFocus": {
+    "outline": "rgb(201, 76, 59) solid 3px",
+    "outlineColor": "rgb(201, 76, 59)",
+    "outlineWidth": "3px",
+    "outlineOffset": "3px"
+  },
+  "initial": {
+    "url": "https://agent-diff-gate.sociobot.in/?demo=1",
+    "title": "Demo — Diff Gate",
+    "owner": "Required owner: Mira Chen",
+    "changed": [
+      "01\nsrc/policy/retention.ts",
+      "02\ndb/migrations/20260828_retention.sql",
+      "03\nsrc/api/export.ts"
+    ],
+    "checks": [
+      "Contract changed",
+      "Migration found",
+      "Test evidence",
+      "Risky path"
+    ],
+    "requiredText": "2 required owner checks",
+    "storage": "{\"title\":\"Add organization-level retention controls\",\"owner\":\"Mira Chen\",\"source\":\"PR #482 · agent-authored\",\"changed\":[\"src/policy/retention.ts\",\"db/migrations/20260828_retention.sql\",\"src/api/export.ts\"],\"checks\":[{\"label\":\"Contract changed\",\"detail\":\"Export API now returns retention state.\",\"state\":\"ready\"},{\"label\":\"Migration found\",\"detail\":\"Adds retention_days and backfills 14,382 rows.\",\"state\":\"risk\"},{\"label\":\"Test evidence\",\"detail\":\"pnpm test: 214 passed · migration check: passed\",\"state\":\"ready\"},{\"label\":\"Risky path\",\"detail\":\"db/migrations requires database owner sign-off.\",\"state\":\"risk\"}]}"
+  },
+  "blocked": {
+    "disabled": true,
+    "message": "Resolve and save every required owner check before approval."
+  },
+  "enabledAfterEvidence": true,
+  "approved": {
+    "buttonDisabled": true,
+    "label": "Required owner: Mira Chen · Approved by Mira Chen",
+    "storage": "{\"title\":\"Add organization-level retention controls\",\"owner\":\"Mira Chen\",\"source\":\"PR #482 · agent-authored\",\"changed\":[\"src/policy/retention.ts\",\"db/migrations/20260828_retention.sql\",\"src/api/export.ts\"],\"checks\":[{\"label\":\"Contract changed\",\"detail\":\"Export API now returns retention state.\",\"state\":\"ready\"},{\"label\":\"Migration found\",\"detail\":\"Adds retention_days and backfills 14,382 rows.\",\"state\":\"done\"},{\"label\":\"Test evidence\",\"detail\":\"pnpm test: 214 passed · migration check: passed\",\"state\":\"ready\"},{\"label\":\"Risky path\",\"detail\":\"db/migrations requires database owner sign-off.\",\"state\":\"done\"}],\"status\":\"approved\",\"approved_by\":\"Mira Chen\",\"approved_at\":\"2026-08-29T11:42:41.332Z\"}"
+  },
+  "exported": {
+    "filename": "diff-gate-packet.json",
+    "title": "Add organization-level retention controls",
+    "changed": [
+      "src/policy/retention.ts",
+      "db/migrations/20260828_retention.sql",
+      "src/api/export.ts"
+    ],
+    "checks": [
+      "Contract changed",
+      "Migration found",
+      "Test evidence",
+      "Risky path"
+    ],
+    "status": "approved"
+  },
+  "retained": {
+    "approvedVisible": true,
+    "buttonDisabled": true
+  },
+  "reset": {
+    "requiredText": "2 required owner checks",
+    "approveDisabled": true
+  },
+  "teardown": {
+    "url": "https://agent-diff-gate.sociobot.in/",
+    "demoBannerCount": 0,
+    "storage": null
+  },
+  "notFound": {
+    "status": 404,
+    "routeHeader": "not-found",
+    "robots": "noindex",
+    "heading": "Page not found"
+  },
+  "requestOrigins": [
+    "https://agent-diff-gate.sociobot.in"
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-CeXtr7Mp.js"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-rQ7R4Jb-.css"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/api/auth/status"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/change-control.webp"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/?demo=1"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-CeXtr7Mp.js"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-rQ7R4Jb-.css"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/api/auth/status"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/change-control.webp"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/independent-missing-route"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-CeXtr7Mp.js"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-rQ7R4Jb-.css"
+    }
+  ],
+  "nonSuccessResponses": [
+    {
+      "status": 404,
+      "url": "https://agent-diff-gate.sociobot.in/independent-missing-route"
+    }
+  ],
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 ()"
+  ],
+  "pageErrors": []
+}
