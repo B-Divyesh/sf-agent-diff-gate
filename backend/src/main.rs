@@ -35,6 +35,8 @@ const RETRY_AFTER_SECONDS: &str = "1";
 const SESSION_DAYS: i64 = 14;
 const DEFAULT_RETENTION_DAYS: i64 = 90;
 const MAX_RETENTION_DAYS: i64 = 3650;
+const DURABLE_DATABASE_URL: &str = "sqlite:/data/diff-gate.db?mode=rwc&vfs=unix-none";
+const DEPLOYMENT_CONFIG_VERSION: &str = "5";
 const PRODUCT_PUBLIC_BASE_URL: &str = "https://agent-diff-gate.sociobot.in";
 const SOCIOBOT_TENANT_ID: &str = "35c6fe40-0ec0-46b6-98c6-213ad4de6650";
 const SOCIOBOT_CLIENT_ID: &str = "25c704f4-465a-47af-80ab-2c489466b697";
@@ -46,11 +48,32 @@ struct AppState {
     db: SqlitePool,
     build: String,
     storage_id: String,
+    stateful_production_ready: bool,
     limits: Arc<Mutex<HashMap<String, Window>>>,
     identity: EntraConfig,
     github: GithubConfig,
     github_api_base: String,
     http: Client,
+}
+fn supplied_stateful_production_contract() -> bool {
+    [
+        ("DATABASE_URL", DURABLE_DATABASE_URL),
+        ("PUBLIC_BASE_URL", PRODUCT_PUBLIC_BASE_URL),
+        ("ENTRA_AUTHORITY", SOCIOBOT_AUTHORITY),
+        ("ENTRA_TENANT_ID", SOCIOBOT_TENANT_ID),
+        ("ENTRA_CLIENT_ID", SOCIOBOT_CLIENT_ID),
+        ("ENTRA_TEAM_CLAIM", "oid"),
+        ("DEPLOYMENT_CONFIG_VERSION", DEPLOYMENT_CONFIG_VERSION),
+    ]
+    .iter()
+    .all(|(name, expected)| env::var(name).ok().as_deref() == Some(*expected))
+}
+fn is_production_host(headers: &HeaderMap) -> bool {
+    headers
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.split_once(':').map_or(value, |(host, _)| host))
+        .is_some_and(|host| host.eq_ignore_ascii_case("agent-diff-gate.sociobot.in"))
 }
 struct Window {
     since: Instant,
@@ -365,12 +388,21 @@ async fn validate_entra_token(
     Ok(claims)
 }
 
-async fn health(State(state): State<AppState>) -> Json<Health> {
-    Json(Health {
-        status: "ok",
-        build: state.build,
-        storage_id: state.storage_id,
-    })
+async fn health(State(state): State<AppState>, headers: HeaderMap) -> Response {
+    let safe = state.stateful_production_ready || !is_production_host(&headers);
+    (
+        if safe {
+            StatusCode::OK
+        } else {
+            StatusCode::SERVICE_UNAVAILABLE
+        },
+        Json(Health {
+            status: if safe { "ok" } else { "unsafe_configuration" },
+            build: state.build,
+            storage_id: state.storage_id,
+        }),
+    )
+        .into_response()
 }
 fn cookie_value(headers: &HeaderMap, name: &str) -> Option<String> {
     headers
@@ -1660,6 +1692,23 @@ async fn cache_headers(request: axum::extract::Request, next: middleware::Next) 
         .insert(header::CACHE_CONTROL, HeaderValue::from_static(value));
     response
 }
+async fn stateful_production_guard(
+    State(state): State<AppState>,
+    request: axum::extract::Request,
+    next: middleware::Next,
+) -> Response {
+    let path = request.uri().path();
+    if is_production_host(request.headers())
+        && !state.stateful_production_ready
+        && (path.starts_with("/api/") || path.starts_with("/auth/"))
+    {
+        return AppError::service_unavailable(
+            "Diff Gate is waiting for its durable production storage configuration. Try again shortly.",
+        )
+        .into_response();
+    }
+    next.run(request).await
+}
 #[derive(Debug)]
 struct AppError {
     status: StatusCode,
@@ -1807,6 +1856,10 @@ fn app(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .merge(protected)
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            stateful_production_guard,
+        ))
         .layer(TraceLayer::new_for_http())
         .layer(middleware::from_fn(security_headers))
         .with_state(state)
@@ -1870,21 +1923,20 @@ async fn main() -> anyhow::Result<()> {
     let build = env::var("BUILD_SHA").unwrap_or_else(|_| "dev".into());
     let (db_url, database_config) = match env::var("DATABASE_URL") {
         Ok(value) => (value, "supplied"),
-        Err(_) => (
-            "sqlite:/data/diff-gate.db?mode=rwc".into(),
-            "generated default",
-        ),
+        Err(_) => (DURABLE_DATABASE_URL.into(), "generated default"),
     };
     if !std::path::Path::new("/data").exists() {
         std::fs::create_dir_all("/data").ok();
     }
     let identity = EntraConfig::from_env();
     let github = GithubConfig::from_env();
+    let stateful_production_ready = supplied_stateful_production_contract();
     info!(
         database_config,
+        stateful_production_ready,
         entra_identity = identity.ready(),
         github_app = github.app_ready(),
-        "Diff Gate starting; only optional GitHub configuration was supplied"
+        "Diff Gate starting; database uses the supplied or generated configuration"
     );
     let db = SqlitePoolOptions::new()
         .max_connections(5)
@@ -1897,6 +1949,7 @@ async fn main() -> anyhow::Result<()> {
         db,
         build,
         storage_id,
+        stateful_production_ready,
         limits: Arc::new(Mutex::new(HashMap::new())),
         identity,
         github,
@@ -1940,6 +1993,7 @@ mod tests {
             db: db.clone(),
             build: "test-sha".into(),
             storage_id: durable_storage_id(&db).await.unwrap(),
+            stateful_production_ready: false,
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity: EntraConfig::default(),
             github: GithubConfig::default(),
@@ -1965,6 +2019,41 @@ mod tests {
             serde_json::from_slice::<serde_json::Value>(&body).unwrap()["build"],
             "test-sha"
         );
+    }
+    #[tokio::test]
+    async fn regression_verifier_17_port_only_public_runtime_fails_closed() {
+        // Verification 17 found the candidate running publicly with only PORT,
+        // which meant multiple replicas wrote independent ephemeral SQLite
+        // stores. Local PORT-only startup remains supported, but that same
+        // incomplete configuration must never serve production state traffic.
+        let (app, _) = test_app().await;
+        let health = app
+            .clone()
+            .oneshot(
+                Request::get("/health")
+                    .header(header::HOST, "agent-diff-gate.sociobot.in")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(health.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let health_body = to_bytes(health.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&health_body).unwrap()["status"],
+            "unsafe_configuration"
+        );
+
+        let api = app
+            .oneshot(
+                Request::get("/api/auth/status")
+                    .header(header::HOST, "agent-diff-gate.sociobot.in")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(api.status(), StatusCode::SERVICE_UNAVAILABLE);
     }
     #[tokio::test]
     async fn missing_routes_return_the_designed_recovery_view_with_404_status() {
@@ -2228,6 +2317,7 @@ mod tests {
             db,
             build: "identity-regression".into(),
             storage_id: "identity-fixture".into(),
+            stateful_production_ready: true,
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity,
             github: GithubConfig::default(),
@@ -2384,6 +2474,7 @@ mod tests {
             db,
             build: "fixture".into(),
             storage_id: "github-fixture".into(),
+            stateful_production_ready: false,
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity: EntraConfig::default(),
             github: GithubConfig::default(),
@@ -2439,6 +2530,7 @@ mod tests {
             db,
             build: "limit-fixture".into(),
             storage_id: "limit-fixture".into(),
+            stateful_production_ready: false,
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity: EntraConfig::default(),
             github: GithubConfig::default(),
@@ -2504,6 +2596,7 @@ mod tests {
             db: db.clone(),
             build: "test".into(),
             storage_id: "test".into(),
+            stateful_production_ready: false,
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity: EntraConfig::default(),
             github: GithubConfig {

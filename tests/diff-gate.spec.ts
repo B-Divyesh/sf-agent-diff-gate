@@ -93,8 +93,11 @@ test('@claim:no-merge-action records a demo decision without calling a code-host
 });
 test('keyboard review can resolve every flagged check', async ({ page }) => {
   await page.goto('/demo');
-  await page.getByRole('button',{name:'Mark reviewed'}).first().focus(); await page.keyboard.press('Enter');
-  await page.getByRole('button',{name:'Mark reviewed'}).first().focus(); await page.keyboard.press('Enter');
+  await page.getByRole('button',{name:'Mark reviewed'}).first().focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button',{name:'Mark reviewed'})).toHaveCount(1);
+  await page.getByRole('button',{name:'Mark reviewed'}).focus();
+  await page.keyboard.press('Enter');
   await expect(page.getByRole('button',{name:'Approve for merge'})).toBeEnabled();
 });
 

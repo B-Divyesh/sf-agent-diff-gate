@@ -4,7 +4,10 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
 export const DATABASE_URL = 'sqlite:/data/diff-gate.db?mode=rwc&vfs=unix-none';
-export const DEPLOYMENT_CONFIG_VERSION = '4';
+// Increment this whenever the stateful deployment contract becomes stricter.
+// An accidental generic Container App update then cannot be mistaken for the
+// last known-safe production revision.
+export const DEPLOYMENT_CONFIG_VERSION = '5';
 
 const managedEnvironmentNames = new Set([
   'PORT',
