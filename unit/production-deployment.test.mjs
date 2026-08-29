@@ -42,14 +42,30 @@ function factoryStatelessApp() {
   };
 }
 
-test('regression: the factory stateless template is rejected', () => {
-  const errors = productionContractErrors(factoryStatelessApp(), { image, storageName, runtime });
-  assert(errors.includes('SQLite requires exactly one replica'));
-  assert(errors.some(error => error.includes('Azure Files volume data')));
-  assert(errors.includes('Azure Files volume data must be mounted at /data'));
-  assert(errors.includes('DATABASE_URL must match the production contract'));
+function verifier13LiveApp() {
+  const app = factoryStatelessApp();
+  app.properties.template.containers[0].image = image;
+  app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
+  return app;
+}
+
+test('regression: verifier 13 three-replica ephemeral production shape is rejected in full', () => {
+  const failingLiveConfiguration = verifier13LiveApp();
+  const errors = productionContractErrors(failingLiveConfiguration, { image, storageName, runtime });
+  assert.deepEqual(errors, [
+    'SQLite requires exactly one replica',
+    'Azure Files volume data must use agent-diff-gate-data-v4',
+    'Azure Files volume data must be mounted at /data',
+    'DATABASE_URL must match the production contract',
+    'PUBLIC_BASE_URL must match the production contract',
+    'ENTRA_AUTHORITY must match the production contract',
+    'ENTRA_TENANT_ID must match the production contract',
+    'ENTRA_CLIENT_ID must match the production contract',
+    'ENTRA_TEAM_CLAIM must match the production contract',
+    'DEPLOYMENT_CONFIG_VERSION must match the production contract',
+  ]);
   assert.throws(
-    () => assertProductionContract(factoryStatelessApp(), { image, storageName, runtime }),
+    () => assertProductionContract(failingLiveConfiguration, { image, storageName, runtime }),
     /Unsafe production configuration/,
   );
 });
