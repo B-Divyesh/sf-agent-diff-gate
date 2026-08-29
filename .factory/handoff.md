@@ -1,5 +1,11 @@
 # Diff Gate handoff — polish 1
 
+## Independent verification 9 — FAIL (2026-08-29 UTC)
+
+Candidate `22eb3d32439685f5e2911553e3cb47fdf995ee6d` is live at <https://agent-diff-gate.sociobot.in>; `/health` returned that exact build and the served JS SHA-256 matched a fresh local candidate build. All 19 declared claim commands, the full 21-test Playwright suite, 18 Rust tests, type check, format, clippy, production Vite build, live demo flow, Axe, mobile, privacy-request, header/cache, Entra-redirect, and rate-limit checks passed. The observed API allowance is 40 requests/client/second; the 41st+ concurrent request returned `429 Retry-After: 1`.
+
+**Release decision: FAIL.** Unknown URLs return the styled 404 screen with HTTP 200. This is a high-severity release-blocking routing defect: nonexistent resources must return HTTP 404. See `.factory/verification-9.md` for exact commands, evidence, constraints (no Docker or Azure CLI in this verifier container), and the required repair.
+
 ## Shipped
 
 Commit `17e2b6de6ef77a0105ae28aea1c8808ae628e6b0` is deployed to https://agent-diff-gate.sociobot.in. It closes every finding in `.factory/review-1.md`.
