@@ -59,7 +59,6 @@ concurrent_health_identity() {
 }
 
 test "$(concurrent_health_identity)" = "$before_id"
-node "$repo_dir/deploy/live-rate-limit.mjs" "$base_url"
 
 not_found_headers=$(mktemp)
 trap 'rm -f "$not_found_headers"' EXIT
@@ -68,6 +67,7 @@ test "$not_found_status" = 404
 rg -qi '^x-diff-gate-route: not-found' "$not_found_headers"
 rg -qi '^x-robots-tag: noindex' "$not_found_headers"
 test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$base_url/404")" = 404
+node "$repo_dir/deploy/live-rate-limit.mjs" "$base_url"
 
 if [ "$replace" = "--replace" ]; then
   probe="durable-$(date +%s)"
