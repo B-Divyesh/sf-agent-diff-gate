@@ -22,6 +22,7 @@ const storageName = 'agent-diff-gate-data-v4';
 const verifier15CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:43c2f38a2e95';
 const verifier16CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:88c392a7825d';
 const verifier17CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:cfdd80845d42';
+const verifier19CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:9df61fc1e555';
 
 function factoryStatelessApp() {
   return {
@@ -81,6 +82,26 @@ function verifier17LiveApp() {
   const app = factoryStatelessApp();
   app.properties.latestRevisionName = 'sf-agent-diff-gate--0000067';
   app.properties.template.containers[0].image = verifier17CandidateImage;
+  app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
+  app.properties.template.scale = {
+    cooldownPeriod: 300,
+    maxReplicas: 3,
+    minReplicas: 1,
+    pollingInterval: 30,
+    rules: null,
+  };
+  return app;
+}
+
+function verifier19LiveApp() {
+  // Exact read-only control-plane capture from verification 19. Although
+  // active revision mode was Single, its template still allowed three
+  // replicas and supplied only PORT, so all durable SQLite and identity
+  // invariants were absent. That is enough to fail-close real work and to
+  // make an in-process limiter nondeterministically multiply per replica.
+  const app = factoryStatelessApp();
+  app.properties.latestRevisionName = 'sf-agent-diff-gate--0000073';
+  app.properties.template.containers[0].image = verifier19CandidateImage;
   app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
   app.properties.template.scale = {
     cooldownPeriod: 300,
@@ -225,6 +246,60 @@ test('regression: verifier 17 exact candidate topology is rejected and rendered 
   };
   assert.doesNotThrow(() =>
     assertProductionContract(repaired, { image: verifier17CandidateImage, storageName, runtime }),
+  );
+});
+
+test('regression: verifier 19 exact PORT-only topology and 80-request allowance are rejected', () => {
+  const failingLiveConfiguration = verifier19LiveApp();
+  const errors = productionContractErrors(failingLiveConfiguration, {
+    image: verifier19CandidateImage,
+    storageName,
+    runtime,
+  });
+
+  assert.deepEqual(errors, [
+    'SQLite requires exactly one replica',
+    'Azure Files volume data must use agent-diff-gate-data-v4',
+    'Azure Files volume data must be mounted at /data',
+    'DATABASE_URL must match the production contract',
+    'PUBLIC_BASE_URL must match the production contract',
+    'ENTRA_AUTHORITY must match the production contract',
+    'ENTRA_TENANT_ID must match the production contract',
+    'ENTRA_CLIENT_ID must match the production contract',
+    'ENTRA_TEAM_CLAIM must match the production contract',
+    'DEPLOYMENT_CONFIG_VERSION must match the production contract',
+  ]);
+  assert.throws(
+    () =>
+      assertProductionContract(failingLiveConfiguration, {
+        image: verifier19CandidateImage,
+        storageName,
+        runtime,
+      }),
+    /Unsafe production configuration/,
+  );
+
+  const twoReplicaRateResult = [
+    ...Array.from({ length: 80 }, () => ({ status: 200, retryAfter: null })),
+    ...Array.from({ length: 20 }, () => ({ status: 429, retryAfter: '1' })),
+  ];
+  assert.throws(
+    () => assertRateLimitResults(twoReplicaRateResult),
+    /accepted 80 requests; expected exactly 40 from one client/,
+  );
+
+  const repaired = {
+    properties: {
+      configuration: { activeRevisionsMode: 'Single' },
+      template: renderProductionTemplate(failingLiveConfiguration, {
+        image: verifier19CandidateImage,
+        storageName,
+        runtime,
+      }),
+    },
+  };
+  assert.doesNotThrow(() =>
+    assertProductionContract(repaired, { image: verifier19CandidateImage, storageName, runtime }),
   );
 });
 
