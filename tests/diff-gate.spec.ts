@@ -145,6 +145,20 @@ test('@claim:audit-export signed-in packet history exposes retention, audit expo
   await expect(page.getByText('Packets will be kept for 30 days.')).toBeVisible();
 });
 
+test('signed-in teams can start the real GitHub App setup when no installation exists', async ({ page }) => {
+  await page.route('**/api/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path === '/api/auth/status') return route.fulfill({ json: { authenticated: true, entra_sign_in_configured: true, github_app_configured: false, install_url: null, user: 'owner@example.com', team: 'Quality' } });
+    if (path === '/api/packets') return route.fulfill({ json: [] });
+    if (path === '/api/settings') return route.fulfill({ json: { retention_days: 90 } });
+    if (path === '/api/repository-policies') return route.fulfill({ json: [] });
+    return route.fulfill({ status: 404, json: { error: 'Unexpected fixture request.' } });
+  });
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: 'Create a read-only team GitHub App' })).toHaveAttribute('href', '/auth/github/new');
+  await expect(page.getByText('A GitHub App installation must be bound to this Sociobot team before importing.')).toBeVisible();
+});
+
 test('header demo route and browser Back always restore the demo sandbox', async ({ page }) => {
   await mockSignedOut(page);
   await page.goto('/');

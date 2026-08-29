@@ -6,12 +6,14 @@ use axum::{
     routing::{get, get_service, post},
     Json, Router,
 };
+use base64::Engine as _;
 use chrono::{Duration as ChronoDuration, Utc};
 use jsonwebtoken::{
     decode, decode_header, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation,
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use sqlx::{sqlite::SqlitePoolOptions, FromRow, SqlitePool};
 use std::{
     collections::{BTreeSet, HashMap},
@@ -33,6 +35,10 @@ const RETRY_AFTER_SECONDS: &str = "1";
 const SESSION_DAYS: i64 = 14;
 const DEFAULT_RETENTION_DAYS: i64 = 90;
 const MAX_RETENTION_DAYS: i64 = 3650;
+const SOCIOBOT_TENANT_ID: &str = "35c6fe40-0ec0-46b6-98c6-213ad4de6650";
+const SOCIOBOT_CLIENT_ID: &str = "25c704f4-465a-47af-80ab-2c489466b697";
+const SOCIOBOT_AUTHORITY: &str =
+    "https://sociobotcustomers.ciamlogin.com/35c6fe40-0ec0-46b6-98c6-213ad4de6650";
 
 #[derive(Clone)]
 struct AppState {
@@ -58,7 +64,7 @@ struct GithubConfig {
 struct EntraConfig {
     authority: Option<String>,
     client_id: Option<String>,
-    client_secret: Option<String>,
+    tenant_id: String,
     public_base: String,
     team_claim: String,
 }
@@ -85,31 +91,29 @@ impl GithubConfig {
 }
 impl EntraConfig {
     fn from_env() -> Self {
+        let tenant_id = env::var("ENTRA_TENANT_ID").unwrap_or_else(|_| SOCIOBOT_TENANT_ID.into());
+        let authority = env::var("ENTRA_AUTHORITY").unwrap_or_else(|_| SOCIOBOT_AUTHORITY.into());
         Self {
-            authority: env::var("ENTRA_AUTHORITY")
-                .ok()
-                .and_then(|value| sociobot_entra_authority(&value)),
-            client_id: env::var("ENTRA_CLIENT_ID").ok(),
-            client_secret: env::var("ENTRA_CLIENT_SECRET").ok(),
+            authority: sociobot_entra_authority(&authority),
+            client_id: Some(
+                env::var("ENTRA_CLIENT_ID").unwrap_or_else(|_| SOCIOBOT_CLIENT_ID.into()),
+            ),
+            tenant_id,
             public_base: env::var("PUBLIC_BASE_URL")
                 .unwrap_or_else(|_| "http://localhost:8080".into()),
-            team_claim: env::var("ENTRA_TEAM_CLAIM")
-                .unwrap_or_else(|_| "extension_DiffGateTeam".into()),
+            team_claim: env::var("ENTRA_TEAM_CLAIM").unwrap_or_else(|_| "oid".into()),
         }
     }
     fn ready(&self) -> bool {
         self.authority
             .as_deref()
             .and_then(sociobot_entra_authority)
-            .is_some()
+            .is_some_and(|authority| authority.ends_with(&format!("/{}", self.tenant_id)))
+            && self.tenant_id == SOCIOBOT_TENANT_ID
             && self.client_id.is_some()
-            && self.client_secret.is_some()
     }
     fn callback_url(&self) -> String {
-        format!(
-            "{}/auth/entra/callback",
-            self.public_base.trim_end_matches('/')
-        )
+        format!("{}/auth/callback", self.public_base.trim_end_matches('/'))
     }
 }
 fn sociobot_entra_authority(raw: &str) -> Option<String> {
@@ -233,6 +237,8 @@ struct EntraMetadata {
 struct EntraClaims {
     sub: String,
     oid: Option<String>,
+    tid: String,
+    nonce: Option<String>,
     preferred_username: Option<String>,
     name: Option<String>,
     #[serde(flatten)]
@@ -250,8 +256,35 @@ struct Session {
     login: String,
     team_name: String,
 }
+#[derive(FromRow, Clone)]
+struct TeamGithubApp {
+    app_id: String,
+    private_key: String,
+    app_slug: String,
+    installation_id: Option<String>,
+}
 
-async fn validate_entra_token(state: &AppState, id_token: &str) -> Result<EntraClaims, AppError> {
+async fn team_github_app(
+    db: &SqlitePool,
+    team_id: &str,
+) -> Result<Option<TeamGithubApp>, sqlx::Error> {
+    sqlx::query_as(
+        "SELECT app_id,private_key,app_slug,installation_id FROM github_team_apps WHERE team_id=?",
+    )
+    .bind(team_id)
+    .fetch_optional(db)
+    .await
+}
+
+fn github_install_url(slug: &str) -> String {
+    format!("https://github.com/apps/{slug}/installations/new")
+}
+
+async fn validate_entra_token(
+    state: &AppState,
+    id_token: &str,
+    expected_nonce: &str,
+) -> Result<EntraClaims, AppError> {
     let authority = state.identity.authority.as_deref().unwrap_or_default();
     let metadata = state
         .http
@@ -270,6 +303,11 @@ async fn validate_entra_token(state: &AppState, id_token: &str) -> Result<EntraC
         .map_err(|_| AppError::service_unavailable("Sociobot identity metadata was invalid."))?;
     let header = decode_header(id_token)
         .map_err(|_| AppError::unauthorized("Sociobot returned an invalid identity token."))?;
+    if header.alg != Algorithm::RS256 {
+        return Err(AppError::unauthorized(
+            "Sociobot identity tokens must use RS256.",
+        ));
+    }
     let kid = header
         .kid
         .ok_or_else(|| AppError::unauthorized("Sociobot identity token has no signing key."))?;
@@ -298,9 +336,15 @@ async fn validate_entra_token(state: &AppState, id_token: &str) -> Result<EntraC
     let mut validation = Validation::new(header.alg);
     validation.set_audience(&[state.identity.client_id.as_deref().unwrap_or_default()]);
     validation.set_issuer(&[metadata.issuer]);
-    decode::<EntraClaims>(id_token, &key, &validation)
+    let claims = decode::<EntraClaims>(id_token, &key, &validation)
         .map(|data| data.claims)
-        .map_err(|_| AppError::unauthorized("Sociobot identity token validation failed."))
+        .map_err(|_| AppError::unauthorized("Sociobot identity token validation failed."))?;
+    if claims.tid != state.identity.tenant_id || claims.nonce.as_deref() != Some(expected_nonce) {
+        return Err(AppError::unauthorized(
+            "Sociobot identity token tenant or sign-in nonce did not match.",
+        ));
+    }
+    Ok(claims)
 }
 
 async fn health(State(state): State<AppState>) -> Json<Health> {
@@ -326,25 +370,42 @@ async fn session(state: &AppState, headers: &HeaderMap) -> Result<Session, AppEr
     })?;
     sqlx::query_as::<_, Session>("SELECT s.team_id, s.login, t.name AS team_name FROM sessions s JOIN teams t ON t.id=s.team_id WHERE s.token=? AND s.expires_at > ?").bind(token).bind(Utc::now().to_rfc3339()).fetch_optional(&state.db).await?.ok_or_else(|| AppError::unauthorized("Your session ended. Sign in with Sociobot again."))
 }
-async fn auth_status(State(state): State<AppState>, headers: HeaderMap) -> Json<AuthStatus> {
+async fn auth_status(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<AuthStatus>, AppError> {
     let _ = purge_expired_transient_rows(&state.db).await;
     let active = session(&state, &headers).await.ok();
-    Json(AuthStatus {
+    let team_app = if let Some(active) = active.as_ref() {
+        team_github_app(&state.db, &active.team_id).await?
+    } else {
+        None
+    };
+    let team_install_url = team_app
+        .as_ref()
+        .map(|app| github_install_url(&app.app_slug));
+    Ok(Json(AuthStatus {
         authenticated: active.is_some(),
         entra_sign_in_configured: state.identity.ready(),
-        github_app_configured: active
+        github_app_configured: team_app
             .as_ref()
-            .and_then(|session| state.github.installation_for(&session.team_id))
+            .and_then(|app| app.installation_id.as_ref())
             .is_some()
-            && state.github.app_ready(),
-        install_url: state
-            .github
-            .app_slug
-            .as_ref()
-            .map(|slug| format!("https://github.com/apps/{slug}/installations/new")),
+            || (active
+                .as_ref()
+                .and_then(|session| state.github.installation_for(&session.team_id))
+                .is_some()
+                && state.github.app_ready()),
+        install_url: team_install_url.or_else(|| {
+            state
+                .github
+                .app_slug
+                .as_ref()
+                .map(|slug| github_install_url(slug))
+        }),
         user: active.as_ref().map(|s| s.login.clone()),
         team: active.map(|s| s.team_name),
-    })
+    }))
 }
 async fn entra_login(State(state): State<AppState>) -> Result<Redirect, AppError> {
     if !state.identity.ready() {
@@ -353,9 +414,15 @@ async fn entra_login(State(state): State<AppState>) -> Result<Redirect, AppError
         ));
     }
     purge_expired_transient_rows(&state.db).await?;
+    let oauth_state = Uuid::new_v4().to_string();
     let nonce = Uuid::new_v4().to_string();
-    sqlx::query("INSERT INTO oauth_states (state,created_at) VALUES (?,?)")
+    let verifier = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+    let challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .encode(Sha256::digest(verifier.as_bytes()));
+    sqlx::query("INSERT INTO oauth_pkce (state,nonce,verifier,created_at) VALUES (?,?,?,?)")
+        .bind(&oauth_state)
         .bind(&nonce)
+        .bind(&verifier)
         .bind(Utc::now().to_rfc3339())
         .execute(&state.db)
         .await?;
@@ -371,8 +438,10 @@ async fn entra_login(State(state): State<AppState>) -> Result<Redirect, AppError
         .append_pair("response_type", "code")
         .append_pair("response_mode", "query")
         .append_pair("scope", "openid profile email")
-        .append_pair("state", &nonce)
-        .append_pair("nonce", &nonce);
+        .append_pair("state", &oauth_state)
+        .append_pair("nonce", &nonce)
+        .append_pair("code_challenge", &challenge)
+        .append_pair("code_challenge_method", "S256");
     Ok(Redirect::temporary(url.as_str()))
 }
 #[derive(Deserialize)]
@@ -389,33 +458,34 @@ async fn entra_callback(
             "Sociobot Entra sign-in is not configured on this deployment.",
         ));
     }
-    if sqlx::query("DELETE FROM oauth_states WHERE state=?")
-        .bind(&query.state)
-        .execute(&state.db)
-        .await?
-        .rows_affected()
-        != 1
-    {
+    let saved: Option<(String, String)> =
+        sqlx::query_as("SELECT nonce,verifier FROM oauth_pkce WHERE state=?")
+            .bind(&query.state)
+            .fetch_optional(&state.db)
+            .await?;
+    let Some((nonce, verifier)) = saved else {
         return Err(AppError::bad(
             "That Sociobot sign-in link expired. Start again.",
         ));
-    }
+    };
+    sqlx::query("DELETE FROM oauth_pkce WHERE state=?")
+        .bind(&query.state)
+        .execute(&state.db)
+        .await?;
     let authority = state.identity.authority.as_deref().unwrap_or_default();
     let token = state
         .http
         .post(format!("{authority}/oauth2/v2.0/token"))
+        .header("origin", &state.identity.public_base)
         .form(&[
             (
                 "client_id",
                 state.identity.client_id.as_deref().unwrap_or_default(),
             ),
-            (
-                "client_secret",
-                state.identity.client_secret.as_deref().unwrap_or_default(),
-            ),
             ("code", &query.code),
             ("redirect_uri", &state.identity.callback_url()),
             ("grant_type", "authorization_code"),
+            ("code_verifier", &verifier),
         ])
         .send()
         .await
@@ -437,8 +507,12 @@ async fn entra_callback(
         .ok_or_else(|| {
             AppError::service_unavailable("Sociobot did not return an identity token.")
         })?;
-    let claims = validate_entra_token(&state, id_token).await?;
-    let team_value = claims.extra.get(&state.identity.team_claim).and_then(|value| match value { serde_json::Value::String(value) => Some(value.clone()), serde_json::Value::Array(values) => values.first().and_then(|v| v.as_str()).map(str::to_string), _ => None }).filter(|value| !value.trim().is_empty()).ok_or_else(|| AppError::forbidden("Your Sociobot account has no Diff Gate team claim. Ask a team administrator to assign one."))?;
+    let claims = validate_entra_token(&state, id_token, &nonce).await?;
+    let team_value = if state.identity.team_claim == "oid" {
+        claims.oid.clone()
+    } else {
+        claims.extra.get(&state.identity.team_claim).and_then(|value| match value { serde_json::Value::String(value) => Some(value.clone()), serde_json::Value::Array(values) => values.first().and_then(|v| v.as_str()).map(str::to_string), _ => None })
+    }.filter(|value| !value.trim().is_empty()).ok_or_else(|| AppError::forbidden("Your Sociobot account has no Diff Gate team claim. Ask a team administrator to assign one."))?;
     let team_id = format!("entra:{team_value}");
     let login = claims
         .preferred_username
@@ -763,6 +837,14 @@ async fn purge_expired_transient_rows(db: &SqlitePool) -> Result<(), sqlx::Error
         .bind((Utc::now() - ChronoDuration::minutes(10)).to_rfc3339())
         .execute(db)
         .await?;
+    sqlx::query("DELETE FROM oauth_pkce WHERE created_at < ?")
+        .bind((Utc::now() - ChronoDuration::minutes(10)).to_rfc3339())
+        .execute(db)
+        .await?;
+    sqlx::query("DELETE FROM github_app_states WHERE created_at < ?")
+        .bind((Utc::now() - ChronoDuration::minutes(20)).to_rfc3339())
+        .execute(db)
+        .await?;
     Ok(())
 }
 
@@ -998,32 +1080,202 @@ fn parse_pr_url(raw: &str) -> Result<(String, String, u64), AppError> {
         .map_err(|_| AppError::bad("The pull request number must be a number."))?;
     Ok((parts[0].to_string(), parts[1].to_string(), number))
 }
-async fn installation_token(state: &AppState, team_id: &str) -> Result<String, AppError> {
-    if !state.github.app_ready() {
-        return Err(AppError::service_unavailable(
-            "Connect the Diff Gate GitHub App before importing a pull request.",
-        ));
-    }
-    let installation_id = state.github.installation_for(team_id).ok_or_else(|| AppError::forbidden("No GitHub App installation is bound to this Sociobot team. Ask a team administrator to install and bind it."))?;
+fn github_app_jwt(app_id: &str, private_key: &str) -> Result<String, AppError> {
     let now = Utc::now().timestamp() as usize;
-    let jwt = encode(
+    encode(
         &Header::new(Algorithm::RS256),
         &GithubJwtClaims {
-            iss: state.github.app_id.clone().unwrap_or_default(),
+            iss: app_id.to_string(),
             iat: now.saturating_sub(30),
             exp: now + 540,
         },
-        &EncodingKey::from_rsa_pem(
-            state
-                .github
-                .private_key
-                .as_deref()
-                .unwrap_or_default()
-                .as_bytes(),
-        )
-        .map_err(|_| AppError::service_unavailable("The GitHub App key is invalid."))?,
+        &EncodingKey::from_rsa_pem(private_key.as_bytes())
+            .map_err(|_| AppError::service_unavailable("The GitHub App key is invalid."))?,
     )
-    .map_err(|_| AppError::service_unavailable("Could not sign the GitHub App request."))?;
+    .map_err(|_| AppError::service_unavailable("Could not sign the GitHub App request."))
+}
+
+fn html_attribute(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}
+
+async fn begin_github_app_manifest(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Response, AppError> {
+    let who = session(&state, &headers).await?;
+    let manifest_state = Uuid::new_v4().to_string();
+    sqlx::query("INSERT INTO github_app_states (state,team_id,created_at) VALUES (?,?,?)")
+        .bind(&manifest_state)
+        .bind(&who.team_id)
+        .bind(Utc::now().to_rfc3339())
+        .execute(&state.db)
+        .await?;
+    let callback = format!(
+        "{}/auth/github/created",
+        state.identity.public_base.trim_end_matches('/')
+    );
+    let setup = format!(
+        "{}/auth/github/installed",
+        state.identity.public_base.trim_end_matches('/')
+    );
+    let suffix = manifest_state.chars().take(8).collect::<String>();
+    let manifest = serde_json::json!({
+        "name": format!("Diff Gate {}", suffix),
+        "url": state.identity.public_base,
+        "redirect_url": callback,
+        "setup_url": setup,
+        "public": false,
+        "default_permissions": {
+            "contents": "read",
+            "pull_requests": "read",
+            "metadata": "read"
+        },
+        "description": format!("Private pull-request review for {}", who.team_name)
+    })
+    .to_string();
+    let body = format!(
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Connect GitHub App — Diff Gate</title></head><body><main><h1>Create your team GitHub App</h1><p>GitHub will create a private App with read-only access to pull requests and repository contents.</p><form method=\"post\" action=\"https://github.com/settings/apps/new\"><input type=\"hidden\" name=\"manifest\" value=\"{}\"><input type=\"hidden\" name=\"state\" value=\"{}\"><button type=\"submit\">Create GitHub App on GitHub</button></form><p><a href=\"/\">Cancel and return to Diff Gate</a></p></main></body></html>",
+        html_attribute(&manifest),
+        html_attribute(&manifest_state)
+    );
+    Ok(([(header::CONTENT_TYPE, "text/html; charset=utf-8")], body).into_response())
+}
+
+#[derive(Deserialize)]
+struct GithubManifestCallback {
+    code: String,
+    state: String,
+}
+#[derive(Deserialize)]
+struct GithubManifestApp {
+    id: u64,
+    pem: String,
+    slug: String,
+}
+async fn github_app_created(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<GithubManifestCallback>,
+) -> Result<Redirect, AppError> {
+    let who = session(&state, &headers).await?;
+    let bound_team: Option<String> =
+        sqlx::query_scalar("SELECT team_id FROM github_app_states WHERE state=?")
+            .bind(&query.state)
+            .fetch_optional(&state.db)
+            .await?;
+    if bound_team.as_deref() != Some(&who.team_id) {
+        return Err(AppError::bad(
+            "That GitHub App setup link expired. Start again.",
+        ));
+    }
+    sqlx::query("DELETE FROM github_app_states WHERE state=?")
+        .bind(&query.state)
+        .execute(&state.db)
+        .await?;
+    let created = state
+        .http
+        .post(format!(
+            "https://api.github.com/app-manifests/{}/conversions",
+            query.code
+        ))
+        .header("user-agent", "diff-gate")
+        .header("accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|_| AppError::service_unavailable("GitHub App setup could not be completed."))?
+        .error_for_status()
+        .map_err(|_| AppError::service_unavailable("GitHub rejected that App setup code."))?
+        .json::<GithubManifestApp>()
+        .await
+        .map_err(|_| AppError::service_unavailable("GitHub returned an invalid App setup."))?;
+    sqlx::query("INSERT INTO github_team_apps (team_id,app_id,private_key,app_slug,installation_id,updated_at) VALUES (?,?,?,?,NULL,?) ON CONFLICT(team_id) DO UPDATE SET app_id=excluded.app_id,private_key=excluded.private_key,app_slug=excluded.app_slug,installation_id=NULL,updated_at=excluded.updated_at")
+        .bind(&who.team_id)
+        .bind(created.id.to_string())
+        .bind(created.pem)
+        .bind(&created.slug)
+        .bind(Utc::now().to_rfc3339())
+        .execute(&state.db)
+        .await?;
+    Ok(Redirect::to(&github_install_url(&created.slug)))
+}
+
+#[derive(Deserialize)]
+struct GithubInstallCallback {
+    installation_id: String,
+}
+async fn github_app_installed(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    axum::extract::Query(query): axum::extract::Query<GithubInstallCallback>,
+) -> Result<Redirect, AppError> {
+    let who = session(&state, &headers).await?;
+    let team_app = team_github_app(&state.db, &who.team_id)
+        .await?
+        .ok_or_else(|| AppError::bad("Create the team GitHub App before installing it."))?;
+    let jwt = github_app_jwt(&team_app.app_id, &team_app.private_key)?;
+    let installed = state
+        .http
+        .get(format!(
+            "https://api.github.com/app/installations/{}",
+            query.installation_id
+        ))
+        .header("user-agent", "diff-gate")
+        .header("accept", "application/vnd.github+json")
+        .bearer_auth(jwt)
+        .send()
+        .await
+        .map_err(|_| AppError::service_unavailable("GitHub installation could not be verified."))?
+        .error_for_status()
+        .map_err(|_| {
+            AppError::forbidden("That installation does not belong to this team's GitHub App.")
+        })?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|_| AppError::service_unavailable("GitHub returned an invalid installation."))?;
+    if installed
+        .get("app_id")
+        .and_then(|value| value.as_u64())
+        .map(|value| value.to_string())
+        != Some(team_app.app_id)
+    {
+        return Err(AppError::forbidden(
+            "That installation does not belong to this team's GitHub App.",
+        ));
+    }
+    sqlx::query("UPDATE github_team_apps SET installation_id=?,updated_at=? WHERE team_id=?")
+        .bind(&query.installation_id)
+        .bind(Utc::now().to_rfc3339())
+        .bind(&who.team_id)
+        .execute(&state.db)
+        .await?;
+    Ok(Redirect::to("/"))
+}
+
+async fn installation_token(state: &AppState, team_id: &str) -> Result<String, AppError> {
+    let team_app = team_github_app(&state.db, team_id).await?;
+    let (app_id, private_key, installation_id) = if let Some(team_app) = team_app {
+        let installation_id = team_app.installation_id.ok_or_else(|| AppError::forbidden("Install the team GitHub App on the private repository before importing a pull request."))?;
+        (team_app.app_id, team_app.private_key, installation_id)
+    } else {
+        if !state.github.app_ready() {
+            return Err(AppError::service_unavailable(
+                "Connect the Diff Gate GitHub App before importing a pull request.",
+            ));
+        }
+        let installation_id = state.github.installation_for(team_id).ok_or_else(|| AppError::forbidden("No GitHub App installation is bound to this Sociobot team. Ask a team administrator to install and bind it."))?;
+        (
+            state.github.app_id.clone().unwrap_or_default(),
+            state.github.private_key.clone().unwrap_or_default(),
+            installation_id,
+        )
+    };
+    let jwt = github_app_jwt(&app_id, &private_key)?;
     let endpoint = format!(
         "https://api.github.com/app/installations/{}/access_tokens",
         installation_id
@@ -1383,7 +1635,10 @@ fn app(state: AppState) -> Router {
         .route("/api/github/import", post(import_github_pr))
         .route("/api/auth/status", get(auth_status))
         .route("/auth/entra", get(entra_login))
-        .route("/auth/entra/callback", get(entra_callback))
+        .route("/auth/callback", get(entra_callback))
+        .route("/auth/github/new", get(begin_github_app_manifest))
+        .route("/auth/github/created", get(github_app_created))
+        .route("/auth/github/installed", get(github_app_installed))
         .route("/api/auth/signout", post(sign_out))
         .merge(static_routes())
         .layer(middleware::from_fn(cache_headers))
@@ -1410,7 +1665,7 @@ async fn security_headers(request: axum::extract::Request, next: middleware::Nex
         HeaderName::from_static("strict-transport-security"),
         HeaderValue::from_static("max-age=31536000; includeSubDomains"),
     );
-    headers.insert(HeaderName::from_static("content-security-policy"),HeaderValue::from_static("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; frame-ancestors 'none'"));
+    headers.insert(HeaderName::from_static("content-security-policy"),HeaderValue::from_static("default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'"));
     response
 }
 async fn create_schema(db: &SqlitePool) -> Result<(), sqlx::Error> {
@@ -1421,6 +1676,9 @@ async fn create_schema(db: &SqlitePool) -> Result<(), sqlx::Error> {
     )
     .execute(db)
     .await?;
+    sqlx::query("CREATE TABLE IF NOT EXISTS oauth_pkce (state TEXT PRIMARY KEY,nonce TEXT NOT NULL,verifier TEXT NOT NULL,created_at TEXT NOT NULL)").execute(db).await?;
+    sqlx::query("CREATE TABLE IF NOT EXISTS github_app_states (state TEXT PRIMARY KEY,team_id TEXT NOT NULL,created_at TEXT NOT NULL)").execute(db).await?;
+    sqlx::query("CREATE TABLE IF NOT EXISTS github_team_apps (team_id TEXT PRIMARY KEY,app_id TEXT NOT NULL,private_key TEXT NOT NULL,app_slug TEXT NOT NULL,installation_id TEXT,updated_at TEXT NOT NULL)").execute(db).await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS packets (id TEXT PRIMARY KEY,team_id TEXT NOT NULL DEFAULT '',title TEXT NOT NULL,owner TEXT NOT NULL,status TEXT NOT NULL,data TEXT NOT NULL,created_at TEXT NOT NULL,approved_by TEXT,approved_at TEXT,source_url TEXT)").execute(db).await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS packet_audit (id TEXT PRIMARY KEY,packet_id TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,detail TEXT NOT NULL,created_at TEXT NOT NULL)").execute(db).await?;
     sqlx::query("CREATE TABLE IF NOT EXISTS team_settings (team_id TEXT PRIMARY KEY,retention_days INTEGER NOT NULL CHECK(retention_days BETWEEN 1 AND 3650))").execute(db).await?;
@@ -1693,11 +1951,11 @@ mod tests {
     #[test]
     fn entra_and_github_installations_are_configured_per_team() {
         let identity = EntraConfig {
-            authority: Some("https://sociobotcustomers.ciamlogin.com/tenant".into()),
+            authority: Some(SOCIOBOT_AUTHORITY.into()),
             client_id: Some("client-id".into()),
-            client_secret: Some("secret".into()),
+            tenant_id: SOCIOBOT_TENANT_ID.into(),
             public_base: "https://agent-diff-gate.sociobot.in".into(),
-            team_claim: "extension_DiffGateTeam".into(),
+            team_claim: "oid".into(),
         };
         assert!(identity.ready());
         let wrong_tenant = EntraConfig {
@@ -1715,7 +1973,7 @@ mod tests {
         assert!(sociobot_entra_authority("https://evil.example/tenant").is_none());
         assert_eq!(
             identity.callback_url(),
-            "https://agent-diff-gate.sociobot.in/auth/entra/callback"
+            "https://agent-diff-gate.sociobot.in/auth/callback"
         );
         let github = GithubConfig {
             app_id: Some("app".into()),
@@ -1729,6 +1987,130 @@ mod tests {
         );
         assert_eq!(github.installation_for("entra:team-b"), None);
         assert!(github.app_ready());
+    }
+    #[tokio::test]
+    async fn live_identity_defaults_to_sociobot_and_uses_pkce_without_a_client_secret() {
+        let db = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        create_schema(&db).await.unwrap();
+        let identity = EntraConfig {
+            authority: Some(SOCIOBOT_AUTHORITY.into()),
+            client_id: Some(SOCIOBOT_CLIENT_ID.into()),
+            tenant_id: SOCIOBOT_TENANT_ID.into(),
+            public_base: "https://agent-diff-gate.sociobot.in".into(),
+            team_claim: "oid".into(),
+        };
+        let service = app(AppState {
+            db,
+            build: "identity-regression".into(),
+            limits: Arc::new(Mutex::new(HashMap::new())),
+            identity,
+            github: GithubConfig::default(),
+            http: Client::new(),
+        });
+        let status = service
+            .clone()
+            .oneshot(
+                Request::get("/api/auth/status")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let status_body = to_bytes(status.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&status_body).unwrap()
+                ["entra_sign_in_configured"],
+            true
+        );
+        let redirect = service
+            .oneshot(
+                Request::get("/auth/entra")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(redirect.status(), StatusCode::TEMPORARY_REDIRECT);
+        let location = Url::parse(redirect.headers()[header::LOCATION].to_str().unwrap()).unwrap();
+        let query: HashMap<_, _> = location.query_pairs().into_owned().collect();
+        assert_eq!(location.host_str(), Some("sociobotcustomers.ciamlogin.com"));
+        assert_eq!(
+            query.get("client_id").map(String::as_str),
+            Some(SOCIOBOT_CLIENT_ID)
+        );
+        assert_eq!(
+            query.get("redirect_uri").map(String::as_str),
+            Some("https://agent-diff-gate.sociobot.in/auth/callback")
+        );
+        assert_eq!(
+            query.get("code_challenge_method").map(String::as_str),
+            Some("S256")
+        );
+        assert!(query
+            .get("code_challenge")
+            .is_some_and(|value| value.len() == 43));
+        assert!(!query.contains_key("client_secret"));
+    }
+    #[tokio::test]
+    async fn github_app_manifest_is_read_only_and_bound_to_the_signed_in_team() {
+        let (service, db) = test_app().await;
+        let future = (Utc::now() + ChronoDuration::days(1)).to_rfc3339();
+        sqlx::query("INSERT INTO teams (id,name,created_at) VALUES ('team-a','Alpha',?),('team-b','Beta',?)")
+            .bind(&future)
+            .bind(&future)
+            .execute(&db)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO sessions (token,team_id,login,expires_at) VALUES ('a-token','team-a','owner-a',?),('b-token','team-b','owner-b',?)")
+            .bind(&future)
+            .bind(&future)
+            .execute(&db)
+            .await
+            .unwrap();
+        let response = service
+            .clone()
+            .oneshot(
+                Request::get("/auth/github/new")
+                    .header("cookie", "diff_gate_session=a-token")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = String::from_utf8(
+            to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(body.contains("https://github.com/settings/apps/new"));
+        assert!(body.contains("&quot;pull_requests&quot;:&quot;read&quot;"));
+        assert!(body.contains("&quot;contents&quot;:&quot;read&quot;"));
+        assert!(!body.contains("&quot;contents&quot;:&quot;write&quot;"));
+        let (manifest_state, bound_team): (String, String) =
+            sqlx::query_as("SELECT state,team_id FROM github_app_states")
+                .fetch_one(&db)
+                .await
+                .unwrap();
+        assert_eq!(bound_team, "team-a");
+        let cross_team = service
+            .oneshot(
+                Request::get(format!(
+                    "/auth/github/created?state={manifest_state}&code=attacker-code"
+                ))
+                .header("cookie", "diff_gate_session=b-token")
+                .body(axum::body::Body::empty())
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cross_team.status(), StatusCode::BAD_REQUEST);
     }
     #[tokio::test]
     async fn github_import_paginates_and_classifies_all_changed_paths() {

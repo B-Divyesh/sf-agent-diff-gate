@@ -42,6 +42,13 @@
     "sandbox": "local two-page GitHub fixture with 102 changed paths; assert page two is read and configured schema and infrastructure policy paths are both evaluated"
   },
   {
+    "id": "github-app-provisioning",
+    "claim": "A signed-in team can start a private read-only GitHub App setup that another Entra team cannot reuse.",
+    "where": "signed-in pull-request import panel and README",
+    "test": "cargo test github_app_manifest_is_read_only_and_bound_to_the_signed_in_team",
+    "sandbox": "two team sessions; generate a GitHub App manifest, assert read-only pull-request and contents permissions, and reject another team reusing the setup state"
+  },
+  {
     "id": "repository-policy",
     "claim": "Each team sets its own repository-sensitive paths and required owners.",
     "where": "signed-in repository policy settings and pull-request import",

@@ -17,8 +17,6 @@ Audited against the signed-out repair build on 2026-08-29.
 | Sign in before reviewing repository changes | 6 | — |
 | Sociobot Entra identifies the reviewer. | 5 | — |
 | Packets are visible only to that reviewer’s team. | 8 | — |
-| Sociobot Entra sign-in is not configured on this deployment. | 9 | — |
-| The sample demo still works without an account. | 8 | — |
 | How it works | 3 | — |
 | Make the review decision visible | 5 | — |
 | Sign in. | 2 | — |

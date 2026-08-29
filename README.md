@@ -20,18 +20,20 @@ cargo run
 
 Visit `http://localhost:8080`. The server uses `PORT` (default `8080`) and creates a SQLite database under `/data`. For a local non-container run, set `DATABASE_URL=sqlite:diff-gate.db?mode=rwc` if `/data` is not writable.
 
-The sample demo works with no configuration. Real review packets use only Sociobot Entra External ID and a team-bound GitHub App installation. In the factory deployment, these values come from approved Key Vault-backed Container App secrets; do not put them in the repository or frontend.
+The sample demo works with no configuration. Real review packets use only Sociobot Entra External ID and a team-bound GitHub App installation. The approved Sociobot tenant and public SPA client are non-secret deployment settings. Sign-in uses authorization-code PKCE, so Diff Gate does not store an Entra client secret.
 
 ```sh
 ENTRA_AUTHORITY=https://sociobotcustomers.ciamlogin.com/<tenant> \
-ENTRA_CLIENT_ID=... ENTRA_CLIENT_SECRET=... \
-ENTRA_TEAM_CLAIM=extension_DiffGateTeam \
+ENTRA_TENANT_ID=... ENTRA_CLIENT_ID=... \
+ENTRA_TEAM_CLAIM=oid \
 GITHUB_APP_ID=... GITHUB_APP_PRIVATE_KEY='-----BEGIN...\\n...' \
 GITHUB_TEAM_INSTALLATIONS='{"entra:<team-id>":"<installation-id>"}' GITHUB_APP_SLUG=... \
 PUBLIC_BASE_URL=https://your-host cargo run
 ```
 
-Configure the Entra application to issue the `extension_DiffGateTeam` claim (or set `ENTRA_TEAM_CLAIM` to your assigned team claim). Only an HTTPS authority on `sociobotcustomers.ciamlogin.com` is accepted. The service validates the issuer, audience, and signing key before creating a session. `GITHUB_TEAM_INSTALLATIONS` maps that exact claim value, prefixed with `entra:`, to one installation id. An unmapped team cannot import. Imports read every changed-file page and reject pull requests above 10,000 files.
+Production defaults to the approved Sociobot tenant and client recorded in `deploy/production.env.json`. Set `ENTRA_TEAM_CLAIM` to an assigned shared-team claim when the tenant issues one; the approved deployment uses the stable Entra `oid` as an isolated team workspace. Only the exact Sociobot tenant on `sociobotcustomers.ciamlogin.com` is accepted. The service validates issuer, tenant, audience, nonce, signing algorithm, and signing key before creating a session.
+
+After sign-in, a team can create its own private GitHub App from the real-work panel. GitHub's App Manifest flow returns a generated App identity and key directly to the backend. The App requests read-only repository contents and pull-request access. Its installation id is verified against that App before being bound to the Entra team. `GITHUB_APP_*` and `GITHUB_TEAM_INSTALLATIONS` remain available for an administrator-provisioned shared App. An unmapped team cannot import. Imports read every changed-file page and reject pull requests above 10,000 files.
 
 Before an import, a signed-in team saves a policy for the exact `owner/repository`: one sensitive path rule per line and the person required to approve it. For example, `schema/** | database-owner@example.com`. Imports refuse repositories without a policy, apply only that repository’s rules, and set the matching rule’s required owner as the packet owner. A pull request matching multiple owners is rejected so the team can split the change or align its policy.
 
@@ -60,7 +62,9 @@ Diff Gate costs **$12 per developer per month** or **$99 per team per month**. T
 
 ## Deploy
 
-The root `Dockerfile` builds the Vite frontend and Rust server. The image listens on `PORT=8080`, has no required environment variables, and serves `/health` with the build SHA. Mount `/data` for durable packet storage. The production Container App adds `ENTRA_*`, `GITHUB_APP_*`, and `GITHUB_TEAM_INSTALLATIONS` as Key Vault secret references, not literal values.
+The root `Dockerfile` builds the Vite frontend and Rust server. The image listens on `PORT=8080`, has no required environment variables, and serves `/health` with the build SHA. Mount `/data` for durable packet storage.
+
+Run `scripts/deploy-production.sh` from an authenticated factory worker. It uses the container work-order helper, reapplies the approved public Entra settings that helper would otherwise replace, and runs the live identity regression. Administrator-provisioned `GITHUB_APP_PRIVATE_KEY` values must use a Key Vault secret reference. The team self-provisioning flow stores GitHub's generated private App key only in the team-scoped backend database.
 
 ## Privacy
 
