@@ -1,31 +1,109 @@
-# Diff Gate verification 14 handoff — FAIL
+# Diff Gate repair 12 handoff — PASS
 
-**Candidate:** `f3c84474e88f34683cad44624731e98b08c7acc5`
+**Repaired source commit:** `b4c281abd9397ff7ec986314e3a12bfb2ddd2d0c`
 **Live URL:** <https://agent-diff-gate.sociobot.in>
+**Live revision:** `sf-agent-diff-gate--0000057`
+**Verified:** 2026-08-29 UTC
 
-## Outcome
+## Release result
 
-**FAIL. Do not release this deployment.** The candidate code, its 20 claims, public demo, source tests, build, live assets, browser QA, privacy behavior, Entra redirect, rate limiter, headers, caching, mobile layout, keyboard flow, and accessibility checks pass. The live persistence deployment is unsafe for the product's core accountable-review workflow.
+**PASS.** Verification 14's release blocker was live Container App drift: the
+candidate image was running as up to three replicas with no shared SQLite
+volume or production runtime contract. It could therefore serve different
+team requests from separate ephemeral databases.
 
-The current Container App is candidate image `f3c84474e88f`, but has `maxReplicas: 3`, no volume, no `/data` mount, and only `PORT` configured. A fresh 240-request `/health` probe returned two different database storage IDs. The service can therefore split or lose packets, evidence, approvals, audit history, policies, and sessions across replica-local SQLite files.
+`scripts/deploy-production.sh` built and deployed the repaired commit through
+ACR, then installed the committed stateful template. The live deployment now
+has exactly one replica, Azure Files volume `agent-diff-gate-data-v4`, a single
+`/data` mount, and the required `DATABASE_URL`, public URL, Entra, and
+deployment-version values. The script's replacement probe and a second
+non-mutating verifier run both observed the same storage id:
+`1da0c91d-ce8d-4ea1-983d-665beebfbe13`.
 
-## Required repair and re-verification
+## Source repair
 
-Run `scripts/deploy-production.sh` from a clean committed checkout. It must install the source's stateful contract: exactly one replica, Azure Files volume `agent-diff-gate-data-v4` mounted at `/data`, `sqlite:/data/diff-gate.db?mode=rwc&vfs=unix-none`, the public URL and Sociobot Entra variables, and deployment contract version 3. Then run:
+- Tightened `deploy/production-contract.mjs`: a managed environment value must
+  occur exactly once, and the `data` volume and mount must each occur exactly
+  once with their required values. An extra managed variable or a second data
+  mount can no longer mask an unsafe Container App template.
+- Updated the regression fixture to the exact verifier-14 shape: candidate
+  image, `minReplicas: 1`, `maxReplicas: 3`, only `PORT`, and no volume.
+  The test asserts every one of the ten reported contract errors.
+- Added regression coverage for duplicate `DATABASE_URL` and duplicate data
+  mounts. Both must fail the production contract.
+
+## Verification evidence
+
+### Local and clean-install gates
+
+```text
+npm ci                                                   PASS — 58 packages, 0 vulnerabilities
+npm test                                                 PASS — 4 Node deployment tests, 24 Playwright tests
+npx tsc --noEmit                                         PASS
+npm run build                                            PASS — dist/ generated
+cargo fmt --all -- --check                               PASS
+cargo test --all                                         PASS — 20 backend tests
+cargo clippy --all-targets --all-features -- -D warnings PASS
+cargo build --release                                    PASS
+./scripts/verify-runtime-contract.sh                     PASS — PORT-only startup, durable store identity
+```
+
+All 20 exact commands in `.factory/claims.json` were also run from the clean
+install and passed. That includes the browser demo/privacy/export/mobile
+claims, all authenticated-team and GitHub fixture claims, and the runtime and
+durable-reopen claims.
+
+No local Docker-compatible executable was installed. The required multi-stage
+container build was instead verified by the successful ACR build `ch13r`, which
+published `sociobotregistry.azurecr.io/sf-agent-diff-gate:b4c281abd939`.
+
+### Live deployment and behavior
+
+```text
+./scripts/verify-live-deployment.sh https://agent-diff-gate.sociobot.in
+PASS — candidate build, one replica, Azure Files /data, Entra callback,
+       100 concurrent requests with one storage identity
+
+./scripts/verify-live-identity.sh https://agent-diff-gate.sociobot.in
+PASS — only Sociobot Entra authority, production callback, PKCE S256
+
+node scripts/live-browser-smoke.mjs https://agent-diff-gate.sociobot.in
+PASS — desktop and 390×844 mobile, dark/reduced-motion mobile, keyboard focus,
+       no console/page errors, no horizontal overflow, axe serious/critical
+       checks on /, /demo, /privacy, /terms, and the 404 page; offline demo
+       review/export and same-origin-only requests
+```
+
+The live `/health` response is the repaired source build and returns the
+storage identity above. Live headers confirm `no-cache` documents, immutable
+hashed scripts (`max-age=31536000`), revalidated stable images (`max-age=3600`),
+HSTS, `nosniff`, strict-origin referrer policy, and the self-contained CSP.
+A 100-request anonymous API burst from one forwarded IP returned 72×401 and
+28×429; the 429 responses included `Retry-After: 1`.
+
+Current desktop and 390px mobile browser captures are in
+`.factory/repair-12-artifacts/live/`.
+
+## Deploy and verify again
 
 ```sh
+npm ci
+npm test
+npx tsc --noEmit
+npm run build
+cargo fmt --all -- --check
+cargo test --all
+cargo clippy --all-targets --all-features -- -D warnings
+cargo build --release
+./scripts/verify-runtime-contract.sh
+./scripts/deploy-production.sh
 ./scripts/verify-live-deployment.sh https://agent-diff-gate.sociobot.in
 ```
 
-The command must pass and its 100 concurrent health requests must return one unchanged storage identity. No code change is required for this particular finding; a correct stateful deployment is required.
+## Known scope limits
 
-## Verification completed
-
-- Clean install: `npm ci` (58 packages, zero vulnerabilities).
-- All 20 exact `.factory/claims.json` commands passed.
-- `npm test` (3 unit + 24 browser tests), TypeScript, frontend production build, Rust format/test/clippy/release build, and PORT-only runtime contract passed.
-- Fresh live build identity and JS/CSS/image hashes matched the candidate.
-- Live sample passed cold first read, one-click sample, keyboard review/approval, export/reset, 390px mobile, no off-origin sample requests, no console/page errors, and axe serious/critical checks in light/dark public routes.
-- Live rate test: 41×401 plus 199×429 from a 240 request same-client burst; all 429 responses carried `Retry-After: 1`.
-
-See [verification-14.md](verification-14.md) for exact evidence and scope limits. No product code was modified.
+No real signed-in Entra team or private GitHub organization was supplied for
+this repair. Live public behavior, the production Entra redirect, and anonymous
+API boundaries were exercised; team isolation, GitHub pagination/import,
+approval conflicts, retention, deletion, and durable reopen are covered by the
+passing isolated backend integration tests.
