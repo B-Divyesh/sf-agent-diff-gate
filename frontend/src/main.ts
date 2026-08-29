@@ -18,6 +18,7 @@ type Draft = {
   approved_by?: string;
   approved_at?: string;
   test_evidence?: { command: string; result: string; recorded_by: string; recorded_at: string };
+  github_revision?: { head_sha: string; previous_head_sha?: string };
 };
 type PolicyRule = { path: string; required_owner: string };
 type RepositoryPolicy = { repository: string; rules: PolicyRule[] };
@@ -83,6 +84,7 @@ let auditHistory: AuditEntry[] = [];
 let retentionDays = 90;
 let repositoryPolicies: RepositoryPolicy[] = [];
 let offline = !navigator.onLine;
+let packetNotice = "";
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const esc = (s: string) =>
   s.replace(
@@ -173,6 +175,11 @@ function shell(content: string, page: string, title: string, description: string
   document.querySelector<HTMLMetaElement>('meta[name="description"]')!.content = description;
   document.querySelector<HTMLMetaElement>('meta[property="og:title"]')!.content = title;
   document.querySelector<HTMLMetaElement>('meta[property="og:description"]')!.content = description;
+  const image = `${location.origin}/social.webp`;
+  document.querySelector<HTMLMetaElement>('meta[property="og:image"]')!.content = image;
+  document.querySelector<HTMLMetaElement>('meta[name="twitter:title"]')!.content = title;
+  document.querySelector<HTMLMetaElement>('meta[name="twitter:description"]')!.content = description;
+  document.querySelector<HTMLMetaElement>('meta[name="twitter:image"]')!.content = image;
   app.innerHTML = `<a class="skip" href="#main">Skip to content</a><header class="site-head"><a class="wordmark" href="/" data-nav><span class="mark" aria-hidden="true">≡</span> Diff Gate</a><nav aria-label="Main navigation"><a href="/?demo=1" data-nav>Demo</a><a href="/#how">How it works</a><a href="/privacy" data-nav>Privacy</a></nav></header>${demo ? `<aside class="demo-bar" aria-label="Demo mode"><span><b>Demo</b> — sample data, nothing is saved</span><span><button class="text-button" id="reset-demo">Reset demo</button><button class="text-button" id="start-real">Start for real</button></span></aside>` : ""}<p id="announcer" class="sr-only" aria-live="polite">${page}</p><main id="main" tabindex="-1">${content}</main><footer><span>Review agent-authored changes before merge.</span><span><a href="/privacy" data-nav>Privacy</a><a href="/terms" data-nav>Terms</a><span>Built by Param Factory</span></span><small>v0.5.0</small></footer>`;
   bind();
   requestAnimationFrame(() =>
@@ -181,7 +188,7 @@ function shell(content: string, page: string, title: string, description: string
 }
 function realStart() {
   if (!auth.authenticated)
-    return `<section class="empty-panel" aria-labelledby="real-title"><p class="eyebrow">Team review</p><h2 id="real-title">Sign in before reviewing repository changes</h2><p>Sociobot Entra identifies the reviewer. Packets are visible only to that reviewer’s team.</p>${auth.entra_sign_in_configured ? '<a class="primary link-button" href="/auth/entra">Sign in with Sociobot</a>' : '<p class="status warning" role="status">Sociobot Entra sign-in is not configured on this deployment. The sample demo still works without an account.</p>'}</section>`;
+    return `<section class="empty-panel" aria-labelledby="real-title"><p class="eyebrow">Team review</p><h2 id="real-title">Sign in before reviewing repository changes</h2><p>Packets are visible only to their signed-in team.</p>${auth.entra_sign_in_configured ? '<a class="primary link-button" href="/auth/entra">Sign in with Sociobot</a>' : '<p class="status warning" role="status">Sociobot Entra sign-in is not configured on this deployment. The sample demo still works without an account.</p>'}</section>`;
   const history = packetList.length
     ? `<section class="packet-history" aria-labelledby="history-title"><h3 id="history-title">Saved review packets</h3><ul>${packetList.map((packet) => `<li><button class="history-link" data-packet="${esc(packet.id)}">${esc(packet.title)} <span>${esc(packet.status)}</span></button></li>`).join("")}</ul></section>`
     : '<p class="status">No saved review packets yet.</p>';
@@ -199,7 +206,10 @@ function packetUI() {
   const history = !demo && auditHistory.length
     ? `<section class="audit" aria-labelledby="audit-title"><h3 id="audit-title">Audit history</h3><ol>${auditHistory.map((entry) => `<li><strong>${esc(entry.action.replaceAll("_", " "))}</strong><span>${esc(entry.actor)} · ${esc(new Date(entry.created_at).toLocaleString())}</span><p>${esc(entry.detail)}</p></li>`).join("")}</ol></section>`
     : "";
-  return `<section class="packet" aria-labelledby="packet-title"><div class="packet-head"><div><p class="eyebrow">${esc(draft.source)}</p><h2 id="packet-title">${esc(draft.title)}</h2><p class="packet-meta">Required owner: <strong>${esc(draft.owner)}</strong>${draft.approved_by ? ` · Approved by <strong>${esc(draft.approved_by)}</strong>` : ""}</p>${draft.source_url ? `<p><a href="${esc(draft.source_url)}" rel="external">Open source pull request (opens GitHub)</a></p>` : ""}</div><div class="stamp ${blockers ? "hold" : "approved"}" aria-label="${immutable ? "Approved" : blockers ? "Review hold" : "Ready to approve"}"><span>${immutable ? "APPROVED" : blockers ? "HOLD" : "READY"}</span><small>${immutable ? "record retained" : blockers ? `${blockers} required owner check${blockers === 1 ? "" : "s"}` : "evidence attached"}</small></div></div><div class="packet-grid"><section aria-labelledby="changed-title"><h3 id="changed-title">Changed files</h3><ul class="file-list">${draft.changed.length ? draft.changed.map((f, i) => `<li><span class="file-no">${String(i + 1).padStart(2, "0")}</span><code>${esc(f)}</code></li>`).join("") : "<li>No changed files recorded.</li>"}</ul></section><section aria-labelledby="checks-title"><h3 id="checks-title">Review evidence</h3><ul class="checks">${draft.checks.map((c, i) => `<li class="check ${c.state}"><span class="state-dot" aria-hidden="true">${c.state === "risk" ? "!" : c.state === "done" ? "✓" : "•"}</span><div><strong>${esc(c.label)}</strong><p>${esc(c.detail)}</p></div>${!immutable && (c.state === "risk" || c.state === "missing") && (demo || c.label !== "Test evidence") ? `<button class="small-button" data-resolve="${i}">Mark reviewed</button>` : ""}</li>`).join("")}</ul>${!demo && !immutable && !hasRecordedTestEvidence ? '<form id="test-evidence-form" class="packet-form"><h3>Save test evidence</h3><label for="evidence-command">Command</label><input id="evidence-command" required placeholder="npm test"><label for="evidence-result">Result</label><textarea id="evidence-result" rows="2" required placeholder="All 24 tests passed"></textarea><button class="secondary" type="submit">Save test evidence</button></form>' : ""}</section></div>${history}<div class="packet-actions"><button class="secondary" id="export-packet">Export packet${demo ? "" : " and history"}</button>${demo ? "" : '<button class="danger-button" id="delete-packet">Delete packet</button>'}<button class="primary" id="approve-packet" ${blockers || immutable || ownerBlocked ? 'disabled aria-describedby="approval-note"' : ""}>${immutable ? "Approved" : "Approve for merge"}</button><p id="approval-note" class="status ${blockers || ownerBlocked ? "warning" : "success"}" role="status">${immutable ? "This approval is retained and immutable." : ownerBlocked ? "Only the required owner can approve this packet." : blockers ? "Resolve and save every required owner check before approval." : "All evidence is saved. Approval records the required owner."}</p></div></section>`;
+  const revision = draft.github_revision ? `<p class="revision">GitHub revision: <code>${esc(draft.github_revision.head_sha)}</code></p>` : "";
+  const refresh = !demo && draft.github_revision && !immutable ? '<button class="secondary" id="refresh-github">Refresh from GitHub</button>' : "";
+  const approvalNote = packetNotice || (immutable ? "This approval is retained and immutable." : ownerBlocked ? "Only the required owner can approve this packet." : blockers ? "Resolve and save every required owner check before approval." : "All evidence is saved. Approval records the required owner.");
+  return `<section class="packet" aria-labelledby="packet-title"><div class="packet-head"><div><p class="eyebrow">${esc(draft.source)}</p><h2 id="packet-title">${esc(draft.title)}</h2><p class="packet-meta">Required owner: <strong>${esc(draft.owner)}</strong>${draft.approved_by ? ` · Approved by <strong>${esc(draft.approved_by)}</strong>` : ""}</p>${revision}${draft.source_url ? `<p><a href="${esc(draft.source_url)}" rel="external">Open source pull request (opens GitHub)</a></p>` : ""}</div><div class="stamp ${blockers ? "hold" : "approved"}" aria-label="${immutable ? "Approved" : blockers ? "Review hold" : "Ready to approve"}"><span>${immutable ? "APPROVED" : blockers ? "HOLD" : "READY"}</span><small>${immutable ? "record retained" : blockers ? `${blockers} required owner check${blockers === 1 ? "" : "s"}` : "evidence attached"}</small></div></div><div class="packet-grid"><section aria-labelledby="changed-title"><h3 id="changed-title">Changed files</h3><ul class="file-list">${draft.changed.length ? draft.changed.map((f, i) => `<li><span class="file-no">${String(i + 1).padStart(2, "0")}</span><code>${esc(f)}</code></li>`).join("") : "<li>No changed files recorded.</li>"}</ul></section><section aria-labelledby="checks-title"><h3 id="checks-title">Review evidence</h3><ul class="checks">${draft.checks.map((c, i) => `<li class="check ${c.state}"><span class="state-dot" aria-hidden="true">${c.state === "risk" ? "!" : c.state === "done" ? "✓" : "•"}</span><div><strong>${esc(c.label)}</strong><p>${esc(c.detail)}</p></div>${!immutable && (c.state === "risk" || c.state === "missing") && (demo || c.label !== "Test evidence") ? `<button class="small-button" data-resolve="${i}">Mark reviewed</button>` : ""}</li>`).join("")}</ul>${!demo && !immutable && !hasRecordedTestEvidence ? '<form id="test-evidence-form" class="packet-form"><h3>Save test evidence</h3><label for="evidence-command">Command</label><input id="evidence-command" required placeholder="npm test"><label for="evidence-result">Result</label><textarea id="evidence-result" rows="2" required placeholder="All 24 tests passed"></textarea><button class="secondary" type="submit">Save test evidence</button></form>' : ""}</section></div>${history}<div class="packet-actions">${refresh}<button class="secondary" id="export-packet">Export packet${demo ? "" : " and history"}</button>${demo ? "" : '<button class="danger-button" id="delete-packet">Delete packet</button>'}<button class="primary" id="approve-packet" ${blockers || immutable || ownerBlocked ? 'disabled aria-describedby="approval-note"' : ""}>${immutable ? "Approved" : "Approve for merge"}</button><p id="approval-note" class="status ${blockers || ownerBlocked ? "warning" : "success"}" role="status">${esc(approvalNote)}</p></div></section>`;
 }
 function landing() {
   queueMicrotask(() => {
@@ -209,7 +219,7 @@ function landing() {
         '<img src="/change-control.webp" width="900" height="600" fetchpriority="high" decoding="async" alt="Printed file sheets and review marks arranged across a change-control desk."><b class="art-stamp">CHECK</b>';
   });
   shell(
-    `<section class="hero"><div class="hero-copy"><p class="eyebrow">Review packets for agent-authored changes</p><h1 tabindex="-1">Review agent-authored changes before merge</h1><p class="lede">For small software teams that need a required owner and test evidence before an agent-authored change lands.</p><div class="button-row"><button class="primary" id="hero-demo">Try it with sample data</button><span class="after-action">Opens a complete review packet.</span></div><ul class="facts"><li>Sample data stays in this browser.</li><li>Signed-in teams see only their review packets.</li><li>Export the sample packet as JSON.</li></ul></div><figure class="hero-art"><div class="hero-print" role="img" aria-label="Printed file sheets, a test receipt, and an approval stamp arranged as a review desk."><i class="paper p1"></i><i class="paper p2"></i><i class="receipt"></i><b class="art-stamp">CHECK</b></div></figure></section><section class="live-area" aria-labelledby="desk-title"><div class="section-kicker"><p class="eyebrow">Review packet</p><h2 id="desk-title">Review a pull request</h2></div>${packetUI()}</section><section id="how" class="how" aria-labelledby="how-title"><p class="eyebrow">How it works</p><h2 id="how-title">How review packets work</h2><ol><li><b>Sign in.</b><span>Start a team review workspace.</span></li><li><b>Set repository policy.</b><span>Name sensitive paths and the required owner.</span></li><li><b>Record evidence.</b><span>Save test evidence before the required owner approves.</span></li></ol></section><section class="boundary" aria-labelledby="boundary-title"><h2 id="boundary-title">What Diff Gate does not do</h2><p>Diff Gate records a review decision. Your team merges code outside Diff Gate.</p></section>`,
+    `<section class="hero"><div class="hero-copy"><p class="eyebrow">Review packets for agent-authored changes</p><h1 tabindex="-1">Review agent-authored changes before merge</h1><p class="lede">For small software teams that need a required owner and test evidence before an agent-authored change lands.</p><div class="button-row"><button class="primary" id="hero-demo">Try it with sample data</button><span class="after-action">Opens a sample packet with changed files, test evidence, and owner checks.</span></div><ul class="facts"><li>Sample data stays in this browser.</li><li>Signed-in teams see only their review packets.</li><li>Export the sample packet as JSON.</li></ul></div><figure class="hero-art"><div class="hero-print" role="img" aria-label="Printed file sheets, a test receipt, and an approval stamp arranged as a review desk."><i class="paper p1"></i><i class="paper p2"></i><i class="receipt"></i><b class="art-stamp">CHECK</b></div></figure></section><section class="live-area" aria-labelledby="desk-title"><div class="section-kicker"><p class="eyebrow">Review packet</p><h2 id="desk-title">Review a pull request</h2></div>${packetUI()}</section><section id="how" class="how" aria-labelledby="how-title"><p class="eyebrow">How it works</p><h2 id="how-title">How review packets work</h2><ol><li><b>Sign in.</b><span>Open your team review workspace.</span></li><li><b>Set repository policy.</b><span>Name sensitive paths and the required owner.</span></li><li><b>Record evidence.</b><span>Save test evidence before the required owner approves.</span></li></ol></section><section class="boundary" aria-labelledby="boundary-title"><h2 id="boundary-title">What Diff Gate does not do</h2><p>Diff Gate records a review decision. Your team merges code outside Diff Gate.</p></section>`,
     "Diff Gate home",
     "Diff Gate — Review agent-authored changes before merge",
     "Review agent-authored changes with required owners and test evidence before merge.",
@@ -234,7 +244,7 @@ function legal(kind: "privacy" | "terms") {
 }
 function notFound() {
   shell(
-    `<section class="not-found"><p class="eyebrow">404</p><h1 tabindex="-1">This review desk is empty</h1><p>That page does not exist. Return to the packet list to continue reviewing.</p><button class="primary" id="go-home">Go to Diff Gate</button></section>`,
+    `<section class="not-found"><p class="eyebrow">404</p><h1 tabindex="-1">Page not found</h1><p>That page does not exist. Return to the packet list to continue reviewing.</p><button class="primary" id="go-home">Go to Diff Gate</button></section>`,
     "Not found — Diff Gate",
     "Not found — Diff Gate",
     "The requested Diff Gate page does not exist.",
@@ -544,6 +554,23 @@ function bind() {
           error instanceof Error ? error.message : "Could not record approval.";
       }
     });
+  document.querySelector("#refresh-github")?.addEventListener("click", async () => {
+    if (!draft?.id || demo) return;
+    try {
+      const saved = await api<any>(`/api/packets/${draft.id}/refresh`, { method: "POST" });
+      draft = {
+        ...JSON.parse(saved.data), id: saved.id, title: saved.title, owner: saved.owner,
+        status: saved.status, source_url: saved.source_url, approved_by: saved.approved_by,
+        approved_at: saved.approved_at,
+      };
+      packetNotice = "GitHub revision checked. Review the current evidence before approval.";
+      await loadAudit(saved.id);
+      render();
+    } catch (error) {
+      const note = document.querySelector("#approval-note")!;
+      note.textContent = error instanceof Error ? error.message : "Could not refresh this pull request.";
+    }
+  });
   document.querySelector("#export-packet")?.addEventListener("click", () => {
     if (!draft) return;
     const exported = demo ? draft : { ...draft, audit_history: auditHistory };

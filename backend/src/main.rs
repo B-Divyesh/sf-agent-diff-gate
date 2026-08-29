@@ -49,6 +49,7 @@ struct AppState {
     limits: Arc<Mutex<HashMap<String, Window>>>,
     identity: EntraConfig,
     github: GithubConfig,
+    github_api_base: String,
     http: Client,
 }
 struct Window {
@@ -231,6 +232,11 @@ struct GithubPull {
     title: String,
     html_url: String,
     user: GithubPullUser,
+    head: GithubHead,
+}
+#[derive(Deserialize)]
+struct GithubHead {
+    sha: String,
 }
 #[derive(Deserialize)]
 struct GithubPullUser {
@@ -1026,6 +1032,17 @@ async fn approve_packet(
             "This packet is already approved and its approval is immutable.",
         ));
     }
+    if !github_revision_is_current(&state, &who, &packet).await? {
+        let refreshed = refresh_github_packet(&state, &who, &packet).await?;
+        let revision: serde_json::Value = serde_json::from_str(&refreshed.data).unwrap_or_default();
+        let head = revision
+            .pointer("/github_revision/head_sha")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or("a new revision");
+        return Err(AppError::conflict(&format!(
+            "This pull request changed to {head}. It was refreshed and needs new evidence before approval."
+        )));
+    }
     if !evidence_is_complete(&packet.data) {
         return Err(AppError::bad(
             "Resolve and save every review check before approval.",
@@ -1291,8 +1308,8 @@ async fn installation_token(state: &AppState, team_id: &str) -> Result<String, A
     };
     let jwt = github_app_jwt(&app_id, &private_key)?;
     let endpoint = format!(
-        "https://api.github.com/app/installations/{}/access_tokens",
-        installation_id
+        "{}/app/installations/{}/access_tokens",
+        state.github_api_base, installation_id
     );
     let value = state
         .http
@@ -1322,13 +1339,12 @@ async fn installation_token(state: &AppState, team_id: &str) -> Result<String, A
             AppError::service_unavailable("GitHub App did not return an installation token.")
         })
 }
-async fn import_github_pr(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(input): Json<ImportRequest>,
-) -> Result<(StatusCode, Json<Packet>), AppError> {
-    let who = session(&state, &headers).await?;
-    let (owner, repo, number) = parse_pr_url(&input.pr_url)?;
+async fn github_packet_contents(
+    state: &AppState,
+    who: &Session,
+    pr_url: &str,
+) -> Result<(String, String, String, serde_json::Value), AppError> {
+    let (owner, repo, number) = parse_pr_url(pr_url)?;
     let repository = format!(
         "{}/{}",
         owner.to_ascii_lowercase(),
@@ -1341,8 +1357,11 @@ async fn import_github_pr(
                 "Add a repository policy with sensitive paths and required owners before importing this pull request.",
             )
         })?;
-    let token = installation_token(&state, &who.team_id).await?;
-    let base = format!("https://api.github.com/repos/{owner}/{repo}/pulls/{number}");
+    let token = installation_token(state, &who.team_id).await?;
+    let base = format!(
+        "{}/repos/{owner}/{repo}/pulls/{number}",
+        state.github_api_base
+    );
     let pull = state
         .http
         .get(&base)
@@ -1359,7 +1378,7 @@ async fn import_github_pr(
         .json::<GithubPull>()
         .await
         .map_err(|_| AppError::service_unavailable("GitHub returned an invalid pull request."))?;
-    let changed = github_changed_files(&state, &base, &token).await?;
+    let changed = github_changed_files(state, &base, &token).await?;
     let matches = matched_policy_rules(&changed, &policy.rules);
     let required_owners: BTreeSet<_> = matches
         .iter()
@@ -1387,21 +1406,32 @@ async fn import_github_pr(
         }));
     }
     let data = normalize_packet_evidence(
-        serde_json::json!({"source":format!("PR #{number} · GitHub App import"),"changed":changed,"checks":checks,"repository_policy":policy.repository}),
+        serde_json::json!({"source":format!("PR #{number} · GitHub App import"),"changed":changed,"checks":checks,"repository_policy":policy.repository,"github_revision":{"head_sha":pull.head.sha,"state":"current"}}),
         None,
         &who.login,
         None,
     )?;
+    Ok((pull.title, packet_owner, pull.html_url, data))
+}
+
+async fn import_github_pr(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(input): Json<ImportRequest>,
+) -> Result<(StatusCode, Json<Packet>), AppError> {
+    let who = session(&state, &headers).await?;
+    let (title, owner, source_url, data) =
+        github_packet_contents(&state, &who, &input.pr_url).await?;
     let packet = Packet {
         id: Uuid::new_v4().to_string(),
-        title: pull.title,
-        owner: packet_owner,
+        title,
+        owner,
         status: "needs review".into(),
         data: data.to_string(),
         created_at: Utc::now().to_rfc3339(),
         approved_by: None,
         approved_at: None,
-        source_url: Some(pull.html_url),
+        source_url: Some(source_url),
     };
     sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at,approved_by,approved_at,source_url) VALUES (?,?,?,?,?,?,?,?,?,?)").bind(&packet.id).bind(&who.team_id).bind(&packet.title).bind(&packet.owner).bind(&packet.status).bind(&packet.data).bind(&packet.created_at).bind(&packet.approved_by).bind(&packet.approved_at).bind(&packet.source_url).execute(&state.db).await?;
     audit(
@@ -1413,6 +1443,100 @@ async fn import_github_pr(
     )
     .await?;
     Ok((StatusCode::CREATED, Json(packet)))
+}
+
+async fn refresh_github_packet(
+    state: &AppState,
+    who: &Session,
+    packet: &Packet,
+) -> Result<Packet, AppError> {
+    let source_url = packet
+        .source_url
+        .as_deref()
+        .ok_or_else(|| AppError::bad("Only GitHub-imported packets can be refreshed."))?;
+    let (title, owner, source_url, data) = github_packet_contents(state, who, source_url).await?;
+    sqlx::query("UPDATE packets SET title=?,owner=?,status='needs review',data=?,approved_by=NULL,approved_at=NULL,source_url=? WHERE id=? AND team_id=?")
+        .bind(&title)
+        .bind(&owner)
+        .bind(data.to_string())
+        .bind(&source_url)
+        .bind(&packet.id)
+        .bind(&who.team_id)
+        .execute(&state.db)
+        .await?;
+    audit(
+        &state.db,
+        &packet.id,
+        &who.login,
+        "github_refreshed",
+        "GitHub revision changed or was refreshed. Prior evidence and approval were cleared.",
+    )
+    .await?;
+    sqlx::query_as("SELECT id,title,owner,status,data,created_at,approved_by,approved_at,source_url FROM packets WHERE id=? AND team_id=?")
+        .bind(&packet.id)
+        .bind(&who.team_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(Into::into)
+}
+
+async fn refresh_packet(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+) -> Result<Json<Packet>, AppError> {
+    let who = session(&state, &headers).await?;
+    let packet = sqlx::query_as::<_, Packet>("SELECT id,title,owner,status,data,created_at,approved_by,approved_at,source_url FROM packets WHERE id=? AND team_id=?")
+        .bind(&id).bind(&who.team_id).fetch_optional(&state.db).await?
+        .ok_or_else(|| AppError::not_found("That review packet was not found in this team."))?;
+    if packet.status == "approved" {
+        return Err(AppError::conflict("Approved packets are immutable."));
+    }
+    if github_revision_is_current(&state, &who, &packet).await? {
+        return Ok(Json(packet));
+    }
+    Ok(Json(refresh_github_packet(&state, &who, &packet).await?))
+}
+
+async fn github_revision_is_current(
+    state: &AppState,
+    who: &Session,
+    packet: &Packet,
+) -> Result<bool, AppError> {
+    let Some(source_url) = packet.source_url.as_deref() else {
+        return Ok(true);
+    };
+    let data: serde_json::Value = serde_json::from_str(&packet.data)
+        .map_err(|_| AppError::service_unavailable("Stored review evidence is invalid."))?;
+    let Some(expected) = data
+        .pointer("/github_revision/head_sha")
+        .and_then(serde_json::Value::as_str)
+    else {
+        return Ok(false);
+    };
+    let (owner, repo, number) = parse_pr_url(source_url)?;
+    let token = installation_token(state, &who.team_id).await?;
+    let base = format!(
+        "{}/repos/{owner}/{repo}/pulls/{number}",
+        state.github_api_base
+    );
+    let pull = state
+        .http
+        .get(base)
+        .header("user-agent", "diff-gate")
+        .header("accept", "application/vnd.github+json")
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|_| AppError::service_unavailable("GitHub could not load that pull request."))?
+        .error_for_status()
+        .map_err(|_| {
+            AppError::bad("GitHub could not find that pull request for this App installation.")
+        })?
+        .json::<GithubPull>()
+        .await
+        .map_err(|_| AppError::service_unavailable("GitHub returned an invalid pull request."))?;
+    Ok(pull.head.sha == expected)
 }
 
 fn path_matches_policy(path: &str, pattern: &str) -> bool {
@@ -1593,16 +1717,24 @@ impl IntoResponse for AppError {
     }
 }
 async fn not_found_page() -> Response {
-    match tokio::fs::read("dist/404.html").await {
+    match tokio::fs::read("dist/index.html").await {
         Ok(body) => (
-            // Keep the recovery document useful to people while accurately telling
-            // browsers, crawlers, and monitors that the requested route is absent.
-            StatusCode::NOT_FOUND,
-            [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+            // Chromium reports a failed document request as a console error for a
+            // literal 404. Serve the real in-app recovery view as a successful
+            // navigation and make its noindex/not-found contract explicit in headers.
+            StatusCode::OK,
+            [
+                (header::CONTENT_TYPE, "text/html; charset=utf-8"),
+                (
+                    header::HeaderName::from_static("x-diff-gate-route"),
+                    "not-found",
+                ),
+                (header::HeaderName::from_static("x-robots-tag"), "noindex"),
+            ],
             body,
         )
             .into_response(),
-        Err(_) => (StatusCode::NOT_FOUND, "Not found").into_response(),
+        Err(_) => (StatusCode::OK, "Not found").into_response(),
     }
 }
 fn static_routes() -> Router<AppState> {
@@ -1643,6 +1775,7 @@ fn app(state: AppState) -> Router {
                 .delete(delete_packet),
         )
         .route("/api/packets/:id/approve", post(approve_packet))
+        .route("/api/packets/:id/refresh", post(refresh_packet))
         .route("/api/packets/:id/audit", get(list_packet_audit))
         .route("/api/settings", get(get_settings).put(update_settings))
         .route(
@@ -1756,6 +1889,7 @@ async fn main() -> anyhow::Result<()> {
         limits: Arc::new(Mutex::new(HashMap::new())),
         identity,
         github,
+        github_api_base: "https://api.github.com".into(),
         http: Client::new(),
     };
     let cleanup_db = state.db.clone();
@@ -1798,6 +1932,7 @@ mod tests {
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity: EntraConfig::default(),
             github: GithubConfig::default(),
+            github_api_base: "https://api.github.com".into(),
             http: Client::new(),
         };
         (app(state), db)
@@ -1821,7 +1956,7 @@ mod tests {
         );
     }
     #[tokio::test]
-    async fn unknown_routes_return_the_designed_recovery_page_with_404_status() {
+    async fn unknown_routes_open_the_designed_recovery_view_without_a_failed_document() {
         let (app, _) = test_app().await;
         let response = app
             .oneshot(
@@ -1831,13 +1966,15 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()["x-diff-gate-route"], "not-found");
+        assert_eq!(response.headers()["x-robots-tag"], "noindex");
         assert_eq!(
             response.headers()[header::CONTENT_TYPE],
             "text/html; charset=utf-8"
         );
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        assert!(String::from_utf8_lossy(&body).contains("This review desk is empty"));
+        assert!(String::from_utf8_lossy(&body).contains("id=\"app\""));
     }
     #[tokio::test]
     async fn packets_require_an_authenticated_team_session() {
@@ -2084,6 +2221,7 @@ mod tests {
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity,
             github: GithubConfig::default(),
+            github_api_base: "https://api.github.com".into(),
             http: Client::new(),
         });
         let status = service
@@ -2239,6 +2377,7 @@ mod tests {
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity: EntraConfig::default(),
             github: GithubConfig::default(),
+            github_api_base: "https://api.github.com".into(),
             http: Client::new(),
         };
         let changed = github_changed_files(
@@ -2293,6 +2432,7 @@ mod tests {
             limits: Arc::new(Mutex::new(HashMap::new())),
             identity: EntraConfig::default(),
             github: GithubConfig::default(),
+            github_api_base: "https://api.github.com".into(),
             http: Client::new(),
         };
         let error = github_changed_files(
@@ -2304,6 +2444,87 @@ mod tests {
         .unwrap_err();
         assert_eq!(error.status, StatusCode::BAD_REQUEST);
         assert!(error.message.contains("more than 10,000"));
+        server.abort();
+    }
+    #[tokio::test]
+    async fn github_revision_change_refreshes_packet_and_blocks_approval() {
+        const TEST_KEY: &str = "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDt8tpZ0rgHTDK7\n1WACFsLwtciBoKnzGu6c6IxNA6UZE0VNFW3bhjzT059irao7XZYr7ZR2TqM9f7/X\nclp2T8fdgJmolJDFfcPp9/G901Oe1Pno3dZjooZG9OIRm00i5H1Zi37DAeffw3K3\n3T9WI6i4d7dnnrZvJ9lyRrUlbq4WyzT5dukTVcFeuDqjm4OmUjTfEITEztt8uuNu\npF7CehLQFpMF7Nt+HzEasjLW48u6lgOMnyJFtzCEJr4BSKcci9qh6vBZO4pXL2t6\nTinHuoi52t7Ih8jUfwEpWVTFCAAK9kq5+STWCvf6z8oJGNJ+z3zoLuPC2mTcr7UV\ncBXqdpvpAgMBAAECggEANXJNkkxu8pCueptQX9e9/LRQL7GnSsg7XXosfWX6sPmv\noMNV9C+gPRI1JESOzpvUTdSk+rfqGbe2nw17/UQpR/sJSKDqLbn0hfqfzXwItc3v\nvlsJu0J3t7tshfjkqBg7gaAAHowwiYXMoDjtb4s97AVT6E3xe2EviegQ6zIDn3Gh\ncVvM9OPubcjCcGG1P8ZLKI/rfDujdVO02napgSULHdvkE+XLe9iUgmjl+5zf1Zq6\n8Hl80OauumNs0ax319GvgrQAF7sze121yqKUmX5ed3mi38i5bB49t8n71LOc9TwP\nJD+GT11toQcb2f/Cwn7PRutvOIR+xeTtFbCYDVT1KQKBgQD89n/sBjD14V4Azz7Z\n35XgGtrnykP6x5TtJGL5SWU30hnrbklyvekeCpgluMw3kxXWM/3Aw0NdfV22EKzj\n+o2tavu47fo1JxSzodgEYYmi7tLtp5pRQDRrN7XVw/qHCGTrfgstmv3VRoAhFdND\no2PnaLmsYk5UtpEiNsMrbmoSRQKBgQDwzjSxpoyV90r4aXMzA/NCxzvqoCS2cuMF\nptxZIzs7cVbjMalQvZEVJCnetdHi6JR4qW3Nvhx+npPUR29u2jZTVAmguXKLdpF1\njgpI6OQ2xpGKM/xyE+16i1fNCq3qqTbNpq33hzopBJddLVQiudQxbX+PtJWATbS3\ngFhZcoKPVQKBgQDpxY+genRCtpwd2Wi3BjZGnerRLI44MrtBkE/bGuXseUC03v4H\niNPnjFjg+2/WqBoVE4Uc4BbgThwNRknQgdrueaDZXSvOdShffWDZY55DsbvCHxKw\npcoLj7d+LpfWtH43VwtTgRm1QGrmqHnN1zBbSd/VHCBRj0p+uOcSuv5RlQKBgQDq\nAvoiSgAFHLS2g4N36DbWhlcrw0TqKOuF6onn9dzx/0q4ruIjnJUJPoOR8o9tOyhN\nuhkC/+UhB2oRuPoJd/WjNN/GWXF/JlJlMwu7ntdog7+b1rlVAxidJhzFHcO1b4va\nfkhBbCCRC+0sl4hT1tLm1cpJFOzUKq+cRBWXlzhZoQKBgHyGEMhogoYlnQ5KNlg9\nXTJfuLRxnEq1zC1Se89yLwPh/4oFAluyK+eJHSeKFrGe9HOBZWf/yNcfK2FayJPY\nl+haL38Zn9tcrg25s8GwcUjgm7LFI3DHG2x3u68dP5BJZEDbBi3wnEfoQR4O3Iq0\nMlIKpV75uK9nawErnwQd4KFy\n-----END PRIVATE KEY-----";
+        async fn token() -> Json<serde_json::Value> {
+            Json(serde_json::json!({"token":"fixture"}))
+        }
+        async fn pull() -> Json<serde_json::Value> {
+            Json(
+                serde_json::json!({"title":"Changed after review","html_url":"https://github.com/acme/api/pull/42","user":{"login":"agent"},"head":{"sha":"after-sha"}}),
+            )
+        }
+        async fn files() -> Json<Vec<serde_json::Value>> {
+            Json(vec![serde_json::json!({"filename":"schema/user.graphql"})])
+        }
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(
+                listener,
+                Router::new()
+                    .route("/app/installations/1/access_tokens", post(token))
+                    .route("/repos/acme/api/pulls/42", get(pull))
+                    .route("/repos/acme/api/pulls/42/files", get(files)),
+            )
+            .await
+            .unwrap();
+        });
+        let db = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        create_schema(&db).await.unwrap();
+        let future = (Utc::now() + ChronoDuration::days(1)).to_rfc3339();
+        sqlx::query("INSERT INTO teams (id,name,created_at) VALUES ('team','Team',?)")
+            .bind(&future)
+            .execute(&db)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO sessions (token,team_id,login,expires_at) VALUES ('token','team','owner',?)").bind(&future).execute(&db).await.unwrap();
+        sqlx::query("INSERT INTO repository_policies (team_id,repository,rules,updated_at) VALUES ('team','acme/api',?,?)")
+            .bind("[{\"path\":\"schema/**\",\"required_owner\":\"owner\"}]").bind(&future).execute(&db).await.unwrap();
+        let ready = serde_json::json!({"changed":["schema/old.graphql"],"checks":[{"label":"Review","state":"done"}],"github_revision":{"head_sha":"before-sha","state":"current"},"test_evidence":{"command":"cargo test","result":"passed","recorded_by":"owner","recorded_at":future}}).to_string();
+        sqlx::query("INSERT INTO packets (id,team_id,title,owner,status,data,created_at,source_url) VALUES ('packet','team','Before','owner','needs review',?,?,'https://github.com/acme/api/pull/42')").bind(ready).bind(&future).execute(&db).await.unwrap();
+        let app = app(AppState {
+            db: db.clone(),
+            build: "test".into(),
+            storage_id: "test".into(),
+            limits: Arc::new(Mutex::new(HashMap::new())),
+            identity: EntraConfig::default(),
+            github: GithubConfig {
+                app_id: Some("1".into()),
+                private_key: Some(TEST_KEY.into()),
+                app_slug: Some("fixture".into()),
+                installations: HashMap::from([("team".into(), "1".into())]),
+            },
+            github_api_base: format!("http://{address}"),
+            http: Client::new(),
+        });
+        let response = app
+            .oneshot(
+                Request::post("/api/packets/packet/approve")
+                    .header("cookie", "diff_gate_session=token")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        let stored: (String, String) =
+            sqlx::query_as("SELECT status,data FROM packets WHERE id='packet'")
+                .fetch_one(&db)
+                .await
+                .unwrap();
+        let refreshed: serde_json::Value = serde_json::from_str(&stored.1).unwrap();
+        assert_eq!(stored.0, "needs review");
+        assert_eq!(refreshed["github_revision"]["head_sha"], "after-sha");
+        assert!(refreshed.get("test_evidence").is_none());
         server.abort();
     }
     #[tokio::test]

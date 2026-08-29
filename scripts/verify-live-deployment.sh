@@ -32,10 +32,14 @@ before_id=$(printf '%s' "$before" | jq -r .storage_id)
 before_revision=$(printf '%s' "$config" | jq -r .properties.latestRevisionName)
 "$(dirname "$0")/verify-live-identity.sh" "$base_url"
 
-# The styled recovery document is a real missing-resource response, not a
-# successful SPA fallback. Keep this black-box assertion in release checks.
-not_found_status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$base_url/this-route-does-not-exist")
-test "$not_found_status" = 404
+# A browser emits a console error for a literal 404 document. The recovery route
+# therefore has an explicit successful-navigation contract and noindex header.
+not_found_headers=$(mktemp)
+trap 'rm -f "$not_found_headers"' EXIT
+not_found_status=$(curl --silent --dump-header "$not_found_headers" --output /dev/null --write-out '%{http_code}' "$base_url/this-route-does-not-exist")
+test "$not_found_status" = 200
+rg -qi '^x-diff-gate-route: not-found' "$not_found_headers"
+rg -qi '^x-robots-tag: noindex' "$not_found_headers"
 
 if [ "$replace" = "--replace" ]; then
   probe="durable-$(date +%s)"

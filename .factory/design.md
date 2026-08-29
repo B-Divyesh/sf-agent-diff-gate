@@ -16,6 +16,8 @@
 
 Packets use a stamped, 180ms opacity/translate reveal when opened. A small non-looping scan line passes through unresolved findings once. With `prefers-reduced-motion`, these appear immediately and the scan is removed. Every state uses words and an icon in addition to colour.
 
+GitHub-imported packets show the reviewed head revision in the packet header. Refreshing that revision returns the packet to the same evidence-first hold state, so a changed pull request cannot inherit a prior approval.
+
 ## Asset plan and provenance
 
 The landing hero uses an original abstract “change-control desk” illustration: repository file cards, test receipts, and an approval stamp in a cyan/coral/yellow halftone print world. It contains no readable text, logos, brands, or people. Generated with the factory image model using `/opt/fleet/lib/gen-image.sh` on 2026-08-28; original product artwork. The 1200×630 social crop is derived from this scene. The runtime UI uses authored CSS dot screens and SVG marks.

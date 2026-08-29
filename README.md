@@ -4,7 +4,7 @@ Review agent-authored changes before merge. Diff Gate is for small software team
 
 ## Try it
 
-Open `/?demo=1`, `/demo`, or click **Try it with sample data**. The sample opens a complete review packet in an isolated browser session. The banner can reset the sample or return to the real workspace.
+Open `/?demo=1`, `/demo`, or click **Try it with sample data**. The sample packet includes changed files, test evidence, and owner checks. Use the banner to reset the sample or return to the real workspace.
 
 ## Run locally
 
@@ -16,9 +16,9 @@ npm run build
 cargo run
 ```
 
-Visit `http://localhost:8080`. The server uses `PORT` (default `8080`) and creates its SQLite database under `/data`. For a local non-container run, set `DATABASE_URL=sqlite:diff-gate.db?mode=rwc` if `/data` is not writable.
+Visit `http://localhost:8080`. Set `PORT` to use another port. For a local non-container run, set `DATABASE_URL=sqlite:diff-gate.db?mode=rwc` when `/data` is not writable.
 
-To connect a real team workspace, configure the approved Sociobot Entra values and GitHub App values for your deployment. The deployment configuration lives in `deploy/production.env.json`.
+To connect a real team workspace, set the sign-in and GitHub App variables below. Deployment configuration is in `deploy/production.env.json`.
 
 ```sh
 ENTRA_AUTHORITY=https://sociobotcustomers.ciamlogin.com/<tenant> \
@@ -30,13 +30,14 @@ GITHUB_APP_SLUG=... PUBLIC_BASE_URL=https://your-host cargo run
 
 ## Review workflow
 
-- Each team sets repository-sensitive paths and their required owners.
+- Each team sets sensitive paths and a required owner for each path.
 - GitHub imports read every changed-file page and evaluate those paths.
-- Only the required owner can approve after saved test command and result evidence.
+- Only the required owner can approve after the test command and result are saved.
+- GitHub-imported packets show the reviewed revision. Refresh when the pull request changes.
 - Teams can set retention and delete a packet with its audit history.
 - Signed-in reviewers can view and export a packet's audit history.
 
-The full list of tested product claims is in [`.factory/claims.json`](.factory/claims.json). The demo contract is in [`.factory/demo.md`](.factory/demo.md).
+Find claim commands in [`.factory/claims.json`](.factory/claims.json). Find the demo contract in [`.factory/demo.md`](.factory/demo.md).
 
 ## Verify
 
@@ -52,11 +53,11 @@ docker build --build-arg BUILD_SHA=dev -t diff-gate .
 docker run --rm -p 8080:8080 diff-gate
 ```
 
-`npm test` runs the browser demo, routing, accessibility, keyboard, mobile-layout, privacy, and export checks. Rust tests cover authenticated team isolation, policy evaluation, evidence and approval, retention, audit history, GitHub integration boundaries, response headers, and rate limiting.
+Run the commands above before submitting a change.
 
 ## Deploy
 
-The root `Dockerfile` builds the Vite frontend and Rust server. Run `scripts/deploy-production.sh` from an authenticated factory worker. It deploys the container, applies the product's durable `/data` mount, and runs the production verification script.
+Build the image from the root `Dockerfile`. Run `scripts/deploy-production.sh` from an authenticated factory worker.
 
 ## Privacy and terms
 

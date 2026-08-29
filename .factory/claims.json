@@ -8,10 +8,10 @@
   },
   {
     "id": "packet-export",
-    "claim": "Exports the review packet as JSON.",
-    "where": "review packet toolbar",
+    "claim": "The sample opens with changed files, test evidence, and owner checks, and exports that review packet as JSON.",
+    "where": "landing action note, landing fact, README, and review packet toolbar",
     "test": "npm run test:browser -- --grep @claim:packet-export",
-    "sandbox": "fresh browser context at /demo; trigger export and assert a JSON review-packet download"
+    "sandbox": "fresh browser context at /demo; assert the sample contents, trigger export, parse JSON, and assert its title, changed files, and checks"
   },
   {
     "id": "demo-query-path",
@@ -61,6 +61,13 @@
     "where": "landing facts, how-it-works section, privacy page, and README",
     "test": "cargo test github_import_paginates_and_classifies_all_changed_paths",
     "sandbox": "local two-page GitHub fixture with 102 changed paths; assert page two is read and configured schema and infrastructure policy paths are both evaluated"
+  },
+  {
+    "id": "github-revision-refresh",
+    "claim": "GitHub-imported approvals apply to the displayed pull-request revision; a changed revision clears prior evidence.",
+    "where": "review packet revision, Refresh from GitHub control, and README",
+    "test": "cargo test github_revision_change_refreshes_packet_and_blocks_approval",
+    "sandbox": "local GitHub fixture returns a new head SHA before approval; assert approval conflicts, the packet stores the new SHA, and prior test evidence is cleared"
   },
   {
     "id": "github-app-provisioning",

@@ -60,9 +60,25 @@ test('@claim:no-third-party-runtime sends no demo data off-origin', async ({ pag
 });
 test('@claim:packet-export exports the review packet as JSON', async ({ page }) => {
   await page.goto('/demo');
+  await expect(page.getByRole('heading', { name: 'Add organization-level retention controls' })).toBeVisible();
+  await expect(page.getByText('pnpm test: 214 passed · migration check: passed')).toBeVisible();
+  await expect(page.getByText('db/migrations requires database owner sign-off.')).toBeVisible();
   const download=page.waitForEvent('download'); await page.getByRole('button',{name:'Export packet'}).click();
   const file=await download; expect(file.suggestedFilename()).toBe('diff-gate-packet.json');
-  expect(await file.createReadStream()).toBeTruthy();
+  const stream = await file.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  const packet = JSON.parse(Buffer.concat(chunks).toString());
+  expect(packet.title).toBe('Add organization-level retention controls');
+  expect(packet.changed).toEqual([
+    'src/policy/retention.ts',
+    'db/migrations/20260828_retention.sql',
+    'src/api/export.ts',
+  ]);
+  expect(packet.checks).toHaveLength(4);
+  expect(packet.checks.map((check: { label: string }) => check.label)).toEqual([
+    'Contract changed', 'Migration found', 'Test evidence', 'Risky path',
+  ]);
 });
 test('@claim:no-merge-action records a demo decision without calling a code-hosting service', async ({ page }) => {
   const requests: string[] = [];
@@ -274,4 +290,36 @@ test('public routes set their own plain-language title, canonical URL, and focus
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `http://127.0.0.1:4173${expected[2]}`);
     await expect(page.locator('h1')).toBeFocused();
   }
+});
+
+test('public routes declare complete absolute social metadata', async ({ page }) => {
+  await mockSignedOut(page);
+  for (const path of ['/', '/?demo=1', '/privacy', '/terms']) {
+    await page.goto(path);
+    for (const selector of [
+      'meta[property="og:title"]', 'meta[property="og:description"]',
+      'meta[property="og:image"]', 'meta[name="twitter:title"]',
+      'meta[name="twitter:description"]', 'meta[name="twitter:image"]',
+    ]) await expect(page.locator(selector)).not.toHaveAttribute('content', '');
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'http://127.0.0.1:4173/social.webp');
+    await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', 'http://127.0.0.1:4173/social.webp');
+  }
+});
+
+test('unknown route renders the recovery view without console errors', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  await page.goto('/missing-review');
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('dedicated 404 document keeps the public header and metadata', async ({ page }) => {
+  await page.goto('/404.html');
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'How it works' })).toBeVisible();
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://agent-diff-gate.sociobot.in/404');
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', '/apple-touch-icon.png');
+  await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://agent-diff-gate.sociobot.in/social.webp');
+  await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', 'https://agent-diff-gate.sociobot.in/social.webp');
 });
