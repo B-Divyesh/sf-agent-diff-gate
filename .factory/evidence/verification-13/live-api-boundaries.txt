@@ -1,0 +1,20 @@
+list_packets                 {"error":"Sign in with Sociobot before opening team packets."}
+STATUS:401
+create_packet                {"error":"Sign in with Sociobot before opening team packets."}
+STATUS:401
+update_settings              {"error":"Sign in with Sociobot before opening team packets."}
+STATUS:401
+save_policy                  {"error":"Sign in with Sociobot before opening team packets."}
+STATUS:401
+github_import                {"error":"Sign in with Sociobot before opening team packets."}
+STATUS:401
+approve                      Expected request with `Content-Type: application/json`
+STATUS:415
+audit                        {"error":"Sign in with Sociobot before opening team packets."}
+STATUS:401
+github_manifest              {"error":"Sign in with Sociobot before opening team packets."}
+STATUS:401
+expired_callback             {"error":"That Sociobot sign-in link expired. Start again."}
+STATUS:400
+approve_with_json            {"error":"Sign in with Sociobot before opening team packets."}
+STATUS:401

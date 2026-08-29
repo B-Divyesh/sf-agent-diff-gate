@@ -1,0 +1,7 @@
+{
+  "requests": 80,
+  "status_200": 80,
+  "status_429": 0,
+  "retry_after_1_on_429": 0,
+  "observed_allowance_per_client_per_second": 80
+}

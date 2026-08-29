@@ -1,0 +1,23 @@
+[
+  {
+    "name": "sf-agent-diff-gate--0000050-99c57889-bjz6q",
+    "properties": {
+      "createdTime": "2026-08-29T13:07:43Z",
+      "runningState": "Running"
+    }
+  },
+  {
+    "name": "sf-agent-diff-gate--0000050-99c57889-pjv6l",
+    "properties": {
+      "createdTime": "2026-08-29T13:09:13Z",
+      "runningState": "Running"
+    }
+  },
+  {
+    "name": "sf-agent-diff-gate--0000050-99c57889-t2pnz",
+    "properties": {
+      "createdTime": "2026-08-29T12:43:00Z",
+      "runningState": "Running"
+    }
+  }
+]

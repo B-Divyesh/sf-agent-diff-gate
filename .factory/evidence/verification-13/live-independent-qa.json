@@ -1,0 +1,73 @@
+{
+  "base": "https://agent-diff-gate.sociobot.in",
+  "checked_at": "2026-08-29T13:08:07.644Z",
+  "desktop_demo": {
+    "headline": "Review agent-authored changes before merge",
+    "audience": "For small software teams that need a required owner and test evidence before an agent-authored change lands.",
+    "action_box": {
+      "x": 192,
+      "y": 599.296875,
+      "width": 207.609375,
+      "height": 46.3125
+    },
+    "keyboard_launch": true,
+    "changed_files": 3,
+    "checks": 4,
+    "approval_persisted_after_reload": true,
+    "reset_restored_sample": true,
+    "start_for_real_cleared_demo_storage": true,
+    "request_count": 10,
+    "request_origins": [
+      "https://agent-diff-gate.sociobot.in"
+    ],
+    "errors": [],
+    "browser_document_status": 200,
+    "browser_document_headers": {
+      "accept-ranges": "bytes",
+      "cache-control": "no-cache",
+      "content-length": "1522",
+      "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+      "content-type": "text/html",
+      "date": "Sat, 29 Aug 2026 13:08:07 GMT",
+      "last-modified": "Sat, 29 Aug 2026 12:35:45 GMT",
+      "referrer-policy": "strict-origin-when-cross-origin",
+      "strict-transport-security": "max-age=31536000; includeSubDomains",
+      "x-content-type-options": "nosniff"
+    }
+  },
+  "mobile": {
+    "viewport": "390x844",
+    "control_count": 13,
+    "minimum_targets_44px": true,
+    "overflow": false,
+    "visible_keyboard_focus": true,
+    "reduced_motion_nonzero_styles": [],
+    "browser_document_status": 200,
+    "browser_document_headers": {
+      "accept-ranges": "bytes",
+      "cache-control": "no-cache",
+      "content-length": "1522",
+      "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+      "content-type": "text/html",
+      "date": "Sat, 29 Aug 2026 13:08:09 GMT",
+      "last-modified": "Sat, 29 Aug 2026 12:35:45 GMT",
+      "referrer-policy": "strict-origin-when-cross-origin",
+      "strict-transport-security": "max-age=31536000; includeSubDomains",
+      "x-content-type-options": "nosniff"
+    }
+  },
+  "invalid_recovery": {
+    "boundary_retention_zero_blocked": true,
+    "retention_30_saved": true,
+    "malformed_url_blocked": true,
+    "empty_title_blocked": true,
+    "incomplete_policy_error": true,
+    "corrected_policy_saved": true,
+    "calls": {
+      "settings": 1,
+      "imports": 0,
+      "packets": 0,
+      "policies": 2
+    }
+  }
+}

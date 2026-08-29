@@ -1,0 +1,15 @@
+{
+  "requests": 240,
+  "statuses": [
+    "ok"
+  ],
+  "builds": [
+    "9abea0da06876e8284b083ec45fbb03a25b6471b"
+  ],
+  "storage_ids": [
+    "3835899b-fc72-4e28-b819-62011a5a6b11",
+    "8d6aafd2-84dc-4907-aaa4-54a7bde406c1",
+    "db8d4958-9f9d-4734-9c97-16315850b188"
+  ],
+  "storage_id_count": 3
+}

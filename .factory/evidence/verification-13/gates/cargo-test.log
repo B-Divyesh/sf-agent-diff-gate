@@ -1,0 +1,26 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s
+     Running unittests backend/src/main.rs (target/debug/deps/diff_gate-7b3105375fb123ea)
+
+running 20 tests
+test tests::approval_rejects_missing_evidence_and_wrong_owner_and_persists_saved_evidence ... ok
+test tests::audit_history_is_team_scoped_and_concurrent_approval_reports_conflict ... ok
+test tests::durable_storage_identity_survives_database_reopen ... ok
+test tests::entra_and_github_installations_are_configured_per_team ... ok
+test tests::github_app_manifest_is_read_only_and_bound_to_the_signed_in_team ... ok
+test tests::github_import_paginates_and_classifies_all_changed_paths ... ok
+test tests::github_import_rejects_more_than_10000_files ... ok
+test tests::github_revision_change_refreshes_packet_and_blocks_approval ... ok
+test tests::github_urls_are_strict_and_docker_uses_the_unpinned_rust_major ... ok
+test tests::health_reports_the_build_identity ... ok
+test tests::live_identity_defaults_to_sociobot_and_uses_pkce_without_a_client_secret ... ok
+test tests::missing_public_base_never_redirects_entra_to_localhost ... ok
+test tests::missing_routes_return_the_designed_recovery_view_with_404_status ... ok
+test tests::packet_reads_and_approvals_are_scoped_to_the_signed_in_team ... ok
+test tests::packets_require_an_authenticated_team_session ... ok
+test tests::rate_limit_uses_the_first_forwarded_ip_and_returns_retry_after ... ok
+test tests::repository_policy_is_team_scoped_and_requires_its_own_paths_and_owner ... ok
+test tests::response_policy_distinguishes_hashed_and_stable_assets ... ok
+test tests::retention_and_explicit_deletion_remove_packets_and_audit ... ok
+test tests::retention_limits_default_and_read_cleanup_are_enforced ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s

@@ -1,0 +1,33 @@
+{
+  "name": "sf-agent-diff-gate",
+  "properties": {
+    "provisioningState": "Succeeded",
+    "configuration": {
+      "activeRevisionsMode": "Single"
+    },
+    "latestRevisionName": "sf-agent-diff-gate--0000050",
+    "template": {
+      "scale": {
+        "cooldownPeriod": 300,
+        "maxReplicas": 3,
+        "minReplicas": 1,
+        "pollingInterval": 30,
+        "rules": null
+      },
+      "volumes": null,
+      "containers": [
+        {
+          "name": "app",
+          "image": "sociobotregistry.azurecr.io/sf-agent-diff-gate:9abea0da0687",
+          "env": [
+            {
+              "name": "PORT",
+              "value": "8080"
+            }
+          ],
+          "volumeMounts": null
+        }
+      ]
+    }
+  }
+}

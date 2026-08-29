@@ -1,0 +1,1216 @@
+{
+  "url": "https://agent-diff-gate.sociobot.in/api/auth/status",
+  "forwarded_ip": "198.51.100.215",
+  "requests": 240,
+  "status_counts": {
+    "200": 120,
+    "429": 120
+  },
+  "all_429_have_retry_after": true,
+  "retry_after_values": [
+    "1"
+  ],
+  "note": "One parallel burst carrying one explicit first-hop X-Forwarded-For value.",
+  "responses": [
+    {
+      "index": 0,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 1,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 2,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 3,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 4,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 5,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 6,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 7,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 8,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 9,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 10,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 11,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 12,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 13,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 14,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 15,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 16,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 17,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 18,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 19,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 20,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 21,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 22,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 23,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 24,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 25,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 26,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 27,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 28,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 29,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 30,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 31,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 32,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 33,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 34,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 35,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 36,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 37,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 38,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 39,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 40,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 41,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 42,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 43,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 44,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 45,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 46,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 47,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 48,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 49,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 50,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 51,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 52,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 53,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 54,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 55,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 56,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 57,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 58,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 59,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 60,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 61,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 62,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 63,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 64,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 65,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 66,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 67,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 68,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 69,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 70,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 71,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 72,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 73,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 74,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 75,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 76,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 77,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 78,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 79,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 80,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 81,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 82,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 83,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 84,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 85,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 86,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 87,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 88,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 89,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 90,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 91,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 92,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 93,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 94,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 95,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 96,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 97,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 98,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 99,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 100,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 101,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 102,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 103,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 104,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 105,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 106,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 107,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 108,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 109,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 110,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 111,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 112,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 113,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 114,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 115,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 116,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 117,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 118,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 119,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 120,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 121,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 122,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 123,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 124,
+      "status": 200,
+      "retry_after": null
+    },
+    {
+      "index": 125,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 126,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 127,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 128,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 129,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 130,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 131,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 132,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 133,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 134,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 135,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 136,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 137,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 138,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 139,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 140,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 141,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 142,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 143,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 144,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 145,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 146,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 147,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 148,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 149,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 150,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 151,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 152,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 153,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 154,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 155,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 156,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 157,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 158,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 159,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 160,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 161,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 162,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 163,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 164,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 165,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 166,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 167,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 168,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 169,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 170,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 171,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 172,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 173,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 174,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 175,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 176,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 177,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 178,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 179,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 180,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 181,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 182,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 183,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 184,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 185,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 186,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 187,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 188,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 189,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 190,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 191,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 192,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 193,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 194,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 195,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 196,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 197,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 198,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 199,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 200,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 201,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 202,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 203,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 204,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 205,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 206,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 207,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 208,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 209,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 210,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 211,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 212,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 213,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 214,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 215,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 216,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 217,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 218,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 219,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 220,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 221,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 222,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 223,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 224,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 225,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 226,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 227,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 228,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 229,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 230,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 231,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 232,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 233,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 234,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 235,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 236,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 237,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 238,
+      "status": 429,
+      "retry_after": "1"
+    },
+    {
+      "index": 239,
+      "status": 429,
+      "retry_after": "1"
+    }
+  ]
+}

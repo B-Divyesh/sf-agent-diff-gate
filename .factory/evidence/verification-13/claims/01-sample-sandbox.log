@@ -1,0 +1,20 @@
+
+> agent-diff-gate@0.1.0 test:browser
+> playwright test --grep @claim:sample-sandbox
+
+[1A[2K[WebServer] (node:16051) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+
+Running 1 test using 1 worker
+
+[1A[2K(node:16069) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:16069) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/1] tests/diff-gate.spec.ts:15:1 › @claim:sample-sandbox keeps sample data isolated and discards it when demo mode ends
+[1A[2K  1 passed (3.9s)
