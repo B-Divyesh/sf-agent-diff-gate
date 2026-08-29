@@ -1,112 +1,31 @@
-# Diff Gate repair 11 handoff — PASS
+# Diff Gate verification 14 handoff — FAIL
 
-**Work order:** `agent-diff-gate-repair-11`
-
-**Repaired report:** `dcd29f400fa50d699d5ffcd75e9e08e722e18469`
-
-**Rejected candidate:** `9abea0da06876e8284b083ec45fbb03a25b6471b`
-
+**Candidate:** `f3c84474e88f34683cad44624731e98b08c7acc5`
 **Live URL:** <https://agent-diff-gate.sociobot.in>
 
-## Release blocker repaired
+## Outcome
 
-Verifier 13 found the live service on the generic container template: one to
-three replicas, no volume, no `/data` mount, and only `PORT`. That gave each
-replica a separate SQLite database and multiplied the per-process request
-allowance. The root cause was last-mile deployment drift after the stateful
-repository contract had already been implemented and tested.
+**FAIL. Do not release this deployment.** The candidate code, its 20 claims, public demo, source tests, build, live assets, browser QA, privacy behavior, Entra redirect, rate limiter, headers, caching, mobile layout, keyboard flow, and accessibility checks pass. The live persistence deployment is unsafe for the product's core accountable-review workflow.
 
-The finding was reproduced before release. `verify-live-deployment.sh` exited
-1 and named all missing fields. Azure showed `maxReplicas: 3`, `volumes: null`,
-`volumeMounts: null`, and only `PORT`. The live image was the rejected
-candidate.
+The current Container App is candidate image `f3c84474e88f`, but has `maxReplicas: 3`, no volume, no `/data` mount, and only `PORT` configured. A fresh 240-request `/health` probe returned two different database storage IDs. The service can therefore split or lose packets, evidence, approvals, audit history, policies, and sessions across replica-local SQLite files.
 
-The repair was released only through `scripts/deploy-production.sh`. ACR run
-`ch11t` built implementation commit
-`2b4485501cc4ab441b626aad91019e2e30fb4baf`. The script applied the image and
-complete stateful template together, then forced another revision replacement.
+## Required repair and re-verification
 
-After replacement, Azure reported:
+Run `scripts/deploy-production.sh` from a clean committed checkout. It must install the source's stateful contract: exactly one replica, Azure Files volume `agent-diff-gate-data-v4` mounted at `/data`, `sqlite:/data/diff-gate.db?mode=rwc&vfs=unix-none`, the public URL and Sociobot Entra variables, and deployment contract version 3. Then run:
 
-- single revision mode;
-- exactly one replica (`minReplicas: 1`, `maxReplicas: 1`);
-- Azure Files volume `agent-diff-gate-data-v4` mounted at `/data`;
-- `sqlite:/data/diff-gate.db?mode=rwc&vfs=unix-none`;
-- the committed public URL and Sociobot Entra settings;
-- deployment contract version `3`.
-
-The 100-request concurrent health probe before and after replacement returned
-one unchanged storage identity:
-`1da0c91d-ce8d-4ea1-983d-665beebfbe13`.
-
-## Exact regression coverage
-
-`unit/production-deployment.test.mjs` now contains the exact verifier 13 live
-fixture: the correct image combined with `maxReplicas: 3`, no volume, no
-mount, and only `PORT`. The test asserts the complete ten-error result for the
-replica limit, Azure Files volume and mount, database URL, public URL, four
-identity values, and deployment contract version.
-
-The existing companion tests still prove that one render installs the full
-stateful contract and that changing any required scale, storage, mount,
-database, or image field makes the contract fail. The live verifier applies
-that same implementation to Azure before and after a forced replacement.
-
-## Clean local verification
-
-All checks passed from this checkout:
-
-```text
-npm ci                                      58 packages, 0 vulnerabilities
-npm test                                    3 unit + 24 Playwright tests passed
-npx tsc --noEmit                            passed
-npm run build                               dist/ produced
-cargo fmt --all -- --check                  passed
-cargo test --all                            20 passed
-cargo clippy --all-targets --all-features   passed with -D warnings
-cargo build --release                       passed
-./scripts/verify-runtime-contract.sh        passed with PORT-only startup
-all 20 exact claims.json commands           passed individually
+```sh
+./scripts/verify-live-deployment.sh https://agent-diff-gate.sociobot.in
 ```
 
-The production output is 22,499 bytes of JavaScript (7,190 bytes gzip), 12,233
-bytes of CSS (3,623 bytes gzip), and a 136,640-byte hero image. This
-web-with-backend product has no consumer package. The ACR multi-stage build
-proved the container because no local Docker-compatible executable is
-installed.
+The command must pass and its 100 concurrent health requests must return one unchanged storage identity. No code change is required for this particular finding; a correct stateful deployment is required.
 
-## Live verification
+## Verification completed
 
-- The standard URL check found the expected title, `lang=en`, one h1, one main
-  landmark, image alternatives, labelled buttons, and no console errors.
-- Desktop and 390 by 844 mobile passed the complete sample flow, keyboard
-  operation, visible focus, no overflow, dark mode, reduced motion, and Axe
-  with no serious or critical findings.
-- The loaded sample remained usable offline. Its full flow made only
-  same-origin requests. No service worker or offline-reload claim exists.
-- Root HTML is `no-cache`; hashed JavaScript is immutable for one year.
-  HSTS, `nosniff`, strict-origin referrer policy, and CSP with
-  `frame-ancestors 'none'` are present. Unknown routes return the designed
-  document with HTTP 404 and `X-Robots-Tag: noindex`.
-- Sociobot Entra uses the production callback and PKCE S256. Anonymous packet,
-  settings, and repository-policy requests return 401.
-- A fresh 100-request burst from one forwarded client returned 40 responses
-  with 200 and 60 with 429. Every 429 included `Retry-After: 1`; `/health`
-  remains exempt.
-- Mobile Lighthouse scored 100 performance, 100 accessibility, 100 best
-  practices, and 100 SEO. FCP was 0.9 s, LCP 1.7 s, TBT 0 ms, CLS 0, and total
-  transfer 170 KiB.
+- Clean install: `npm ci` (58 packages, zero vulnerabilities).
+- All 20 exact `.factory/claims.json` commands passed.
+- `npm test` (3 unit + 24 browser tests), TypeScript, frontend production build, Rust format/test/clippy/release build, and PORT-only runtime contract passed.
+- Fresh live build identity and JS/CSS/image hashes matched the candidate.
+- Live sample passed cold first read, one-click sample, keyboard review/approval, export/reset, 390px mobile, no off-origin sample requests, no console/page errors, and axe serious/critical checks in light/dark public routes.
+- Live rate test: 41×401 plus 199×429 from a 240 request same-client burst; all 429 responses carried `Retry-After: 1`.
 
-Browser screenshots, the URL report, and Lighthouse JSON are in
-[`repair-11-artifacts/`](repair-11-artifacts/).
-
-## Known limits
-
-No test member account or private GitHub organization was supplied. The live
-identity authority, callback, PKCE, anonymous boundaries, and deployment state
-were checked. Authenticated team isolation, GitHub pagination and import,
-approval conflicts, retention, deletion, audit export, and durable database
-reopen are covered by the passing isolated integration and browser fixtures.
-
-The researched workflow, visual system, demo, claims, legal copy, artifact
-class, and every behavior that verifier 13 passed are unchanged.
+See [verification-14.md](verification-14.md) for exact evidence and scope limits. No product code was modified.
