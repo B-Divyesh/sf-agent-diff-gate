@@ -37,16 +37,21 @@ sh -n scripts/verify-live-deployment.sh
 
 Every exact command listed in `.factory/claims.json` was also rerun successfully. Offline update/service-worker checks do not apply: this backend-served web product makes no PWA offline-reload/update claim; the shipped offline demo interaction is covered by Playwright.
 
-## Deploy and live verification
+## Deployment and live verification
 
-Deploy with:
+Commit `88498f738529a724e95ed53a67c03482c04493dd` was pushed to `main` and deployed with `./scripts/deploy-production.sh` on 2026-08-29 UTC. The remote ACR container build succeeded. Live `GET /health` returned that exact build SHA and durable storage id `edddc5da-d5cc-4343-b19f-9ac2c15fc546`.
+
+Production checks all passed:
 
 ```sh
-./scripts/deploy-production.sh
+curl --output /dev/null --write-out '%{http_code}' https://agent-diff-gate.sociobot.in/this-route-does-not-exist
+# 404
+./scripts/verify-live-deployment.sh https://agent-diff-gate.sociobot.in
 node scripts/live-browser-smoke.mjs https://agent-diff-gate.sociobot.in
+./scripts/verify-live-identity.sh https://agent-diff-gate.sociobot.in
 ```
 
-The deployment script uses the container configuration, preserves the single Azure Files-backed `/data` replica, checks the live Sociobot Entra redirect and durable storage identity, and now enforces the exact unknown-route status `404`.
+The deployment contract confirmed the public Sociobot Entra callback, one Azure Files-backed `/data` replica, durable identity, and the new exact 404 assertion. The browser smoke passed desktop and 390px mobile navigation, keyboard focus, serious/critical Axe checks, privacy requests, and the offline demo. The live rate probe made 55 concurrent `/api/auth/status` requests from one forwarded IP: **40 returned 200; 15 returned 429; all 15 limited responses had `Retry-After: 1`**.
 
 ## Known gaps
 

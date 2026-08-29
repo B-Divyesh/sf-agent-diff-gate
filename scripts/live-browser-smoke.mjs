@@ -61,7 +61,7 @@ await page.goto(`${base}/demo`, { waitUntil: 'networkidle' });
 await context.setOffline(true);
 await page.getByRole('button', { name: 'Mark reviewed' }).first().click();
 await page.getByRole('button', { name: 'Export packet' }).click();
-if (!(await page.getByText('1 owner check').isVisible())) throw new Error('offline demo did not remain usable');
+if (!(await page.getByText('1 required owner check').isVisible())) throw new Error('offline demo did not remain usable');
 if (!requests.every(url => new URL(url).origin === new URL(base).origin)) throw new Error('demo sent a third-party request');
 await context.close();
 await browser.close();
