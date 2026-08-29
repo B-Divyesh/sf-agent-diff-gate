@@ -9,10 +9,12 @@ expected_base=https://agent-diff-gate.sociobot.in
 
 config=$(az containerapp show --resource-group "$resource_group" --name "$app_name" --output json)
 printf '%s' "$config" | jq -e --arg base "$expected_base" '
+  .properties.configuration.activeRevisionsMode == "Single" and
   .properties.template.scale.minReplicas == 1 and
   .properties.template.scale.maxReplicas == 1 and
   ([.properties.template.volumes[]? | select(.name == "data" and .storageType == "AzureFile")] | length) == 1 and
   ([.properties.template.containers[] | select(.name == "app") | .volumeMounts[]? | select(.volumeName == "data" and .mountPath == "/data")] | length) == 1 and
+  ([.properties.template.containers[] | select(.name == "app") | .env[]? | select(.name == "DATABASE_URL" and (.value | startswith("sqlite:/data/")))] | length) == 1 and
   ([.properties.template.containers[] | select(.name == "app") | .env[]? | select(.name == "PUBLIC_BASE_URL" and .value == $base)] | length) == 1
 ' >/dev/null
 
@@ -32,14 +34,13 @@ before_id=$(printf '%s' "$before" | jq -r .storage_id)
 before_revision=$(printf '%s' "$config" | jq -r .properties.latestRevisionName)
 "$(dirname "$0")/verify-live-identity.sh" "$base_url"
 
-# A browser emits a console error for a literal 404 document. The recovery route
-# therefore has an explicit successful-navigation contract and noindex header.
 not_found_headers=$(mktemp)
 trap 'rm -f "$not_found_headers"' EXIT
 not_found_status=$(curl --silent --dump-header "$not_found_headers" --output /dev/null --write-out '%{http_code}' "$base_url/this-route-does-not-exist")
-test "$not_found_status" = 200
+test "$not_found_status" = 404
 rg -qi '^x-diff-gate-route: not-found' "$not_found_headers"
 rg -qi '^x-robots-tag: noindex' "$not_found_headers"
+test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$base_url/404")" = 404
 
 if [ "$replace" = "--replace" ]; then
   probe="durable-$(date +%s)"

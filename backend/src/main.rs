@@ -1719,10 +1719,9 @@ impl IntoResponse for AppError {
 async fn not_found_page() -> Response {
     match tokio::fs::read("dist/index.html").await {
         Ok(body) => (
-            // Chromium reports a failed document request as a console error for a
-            // literal 404. Serve the real in-app recovery view as a successful
-            // navigation and make its noindex/not-found contract explicit in headers.
-            StatusCode::OK,
+            // Keep the recovery view useful to people while accurately telling
+            // browsers, crawlers, and monitors that the requested route is absent.
+            StatusCode::NOT_FOUND,
             [
                 (header::CONTENT_TYPE, "text/html; charset=utf-8"),
                 (
@@ -1734,7 +1733,19 @@ async fn not_found_page() -> Response {
             body,
         )
             .into_response(),
-        Err(_) => (StatusCode::OK, "Not found").into_response(),
+        Err(_) => (
+            StatusCode::NOT_FOUND,
+            [
+                (header::CONTENT_TYPE, "text/plain; charset=utf-8"),
+                (
+                    header::HeaderName::from_static("x-diff-gate-route"),
+                    "not-found",
+                ),
+                (header::HeaderName::from_static("x-robots-tag"), "noindex"),
+            ],
+            "Not found",
+        )
+            .into_response(),
     }
 }
 fn static_routes() -> Router<AppState> {
@@ -1744,7 +1755,7 @@ fn static_routes() -> Router<AppState> {
         .route("/demo", index())
         .route("/privacy", index())
         .route("/terms", index())
-        .route_service("/404", ServeFile::new("dist/404.html"))
+        .route("/404", get(not_found_page))
         .route_service("/404.css", ServeFile::new("dist/404.css"))
         .nest_service("/assets", ServeDir::new("dist/assets"))
         .route_service("/favicon.svg", ServeFile::new("dist/favicon.svg"))
@@ -1956,25 +1967,24 @@ mod tests {
         );
     }
     #[tokio::test]
-    async fn unknown_routes_open_the_designed_recovery_view_without_a_failed_document() {
+    async fn missing_routes_return_the_designed_recovery_view_with_404_status() {
         let (app, _) = test_app().await;
-        let response = app
-            .oneshot(
-                Request::get("/this-route-does-not-exist")
-                    .body(axum::body::Body::empty())
-                    .unwrap(),
-            )
-            .await
-            .unwrap();
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(response.headers()["x-diff-gate-route"], "not-found");
-        assert_eq!(response.headers()["x-robots-tag"], "noindex");
-        assert_eq!(
-            response.headers()[header::CONTENT_TYPE],
-            "text/html; charset=utf-8"
-        );
-        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
-        assert!(String::from_utf8_lossy(&body).contains("id=\"app\""));
+        for path in ["/this-route-does-not-exist", "/404"] {
+            let response = app
+                .clone()
+                .oneshot(Request::get(path).body(axum::body::Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
+            assert_eq!(response.headers()["x-diff-gate-route"], "not-found");
+            assert_eq!(response.headers()["x-robots-tag"], "noindex");
+            assert_eq!(
+                response.headers()[header::CONTENT_TYPE],
+                "text/html; charset=utf-8"
+            );
+            let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+            assert!(String::from_utf8_lossy(&body).contains("id=\"app\""));
+        }
     }
     #[tokio::test]
     async fn packets_require_an_authenticated_team_session() {

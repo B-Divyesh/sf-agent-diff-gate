@@ -63,5 +63,7 @@ body=$(jq -cn --argjson template "$template" '{properties:{template:$template}}'
 az rest --method patch \
   --uri "https://management.azure.com/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.App/containerApps/${app_name}?api-version=2024-03-01" \
   --body "$body" --output none
+az containerapp revision set-mode --resource-group "$resource_group" --name "$app_name" \
+  --mode single --output none
 
 "$repo_dir/scripts/verify-live-deployment.sh" "$public_base" --replace

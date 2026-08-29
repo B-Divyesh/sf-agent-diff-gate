@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { mkdir } from 'node:fs/promises';
 
 const base = process.argv[2] || 'https://agent-diff-gate.sociobot.in';
-const artifacts = '.factory/repair-6-artifacts';
+const artifacts = process.env.DIFF_GATE_ARTIFACT_DIR || '.factory/repair-9-artifacts';
 await mkdir(artifacts, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 
@@ -14,8 +14,9 @@ for (const profile of [
   const context = await browser.newContext(profile);
   const page = await context.newPage();
   const errors = [];
+  let expectedNotFoundNavigation = false;
   page.on('console', message => {
-    if (message.type() === 'error') errors.push(message.text());
+    if (message.type() === 'error' && !expectedNotFoundNavigation) errors.push(message.text());
   });
   page.on('pageerror', error => errors.push(error.message));
   for (const path of ['/', '/demo', '/privacy', '/terms']) {
@@ -38,9 +39,11 @@ for (const profile of [
   await page.keyboard.press('Tab');
   if (!(await page.locator(':focus').isVisible())) throw new Error(`${profile.name}: keyboard focus is not visible`);
   await page.screenshot({ path: `${artifacts}/live-${profile.name}.png`, fullPage: true });
+  expectedNotFoundNavigation = true;
   const missingResponse = await page.goto(`${base}/missing-release-check`, { waitUntil: 'networkidle' });
-  if (missingResponse?.status() !== 200 || missingResponse.headers()['x-diff-gate-route'] !== 'not-found') {
-    throw new Error(`${profile.name}: unknown route did not return the explicit recovery contract`);
+  expectedNotFoundNavigation = false;
+  if (missingResponse?.status() !== 404 || missingResponse.headers()['x-diff-gate-route'] !== 'not-found') {
+    throw new Error(`${profile.name}: unknown route did not return the HTTP 404 recovery contract`);
   }
   if (await page.getByRole('heading', { name: 'Page not found' }).count() !== 1) throw new Error(`${profile.name}: missing recovery heading`);
   const missingAxe = await new AxeBuilder({ page }).analyze();
