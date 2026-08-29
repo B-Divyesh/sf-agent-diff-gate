@@ -1,6 +1,6 @@
 # Landing-page copy audit
 
-Audited against the polish-2 build on 2026-08-29. Commands and field labels are included where they convey visitor-facing meaning. No sentence exceeds 22 words or uses a banned marketing word.
+Audited again against the deployed repair-9 build on 2026-08-29. Commands and field labels are included where they convey visitor-facing meaning. No sentence exceeds 22 words or uses a banned marketing word.
 
 | Sentence | Words | Flag |
 |---|---:|---|
