@@ -1,6 +1,6 @@
 # Landing-page copy audit
 
-Audited again against the repair-16 build on 2026-08-29. Commands and field labels are included where they convey visitor-facing meaning. No sentence exceeds 22 words or uses a banned marketing word.
+Audited again against the verification-21 repair on 2026-08-30. Commands and field labels are included where they convey visitor-facing meaning. No sentence exceeds 22 words or uses a banned marketing word.
 
 | Sentence | Words | Flag |
 |---|---:|---|

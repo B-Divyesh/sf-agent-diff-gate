@@ -1,0 +1,14 @@
+{
+  "url": "https://agent-diff-gate.sociobot.in",
+  "loadMs": 599,
+  "errors": [],
+  "a11y": {
+    "title": "Diff Gate — Review agent-authored changes before merge",
+    "lang": "en",
+    "h1": 1,
+    "main": true,
+    "imgsMissingAlt": 0,
+    "buttonsUnlabeled": 0,
+    "textLength": 1074
+  }
+}
