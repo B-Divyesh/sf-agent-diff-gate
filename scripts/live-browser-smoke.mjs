@@ -60,6 +60,21 @@ for (const profile of [
     const blocking = axe.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');
     if (blocking.length) throw new Error(`${profile.name} ${path} axe: ${JSON.stringify(blocking)}`);
   }
+  const callback = await page.goto(`${base}/auth/callback?error=access_denied&error_description=User%20cancelled`, { waitUntil: 'networkidle' });
+  if (callback?.status() !== 200) throw new Error(`${profile.name}: handled Entra callback returned ${callback?.status()}`);
+  if (await page.getByRole('heading', { level: 1, name: 'Sign-in did not complete' }).count() !== 1) {
+    throw new Error(`${profile.name}: canceled Entra callback did not render its recovery heading`);
+  }
+  for (const action of ['Try sign-in again', 'Return to Diff Gate', 'Try it with sample data']) {
+    if (await page.getByRole('link', { name: action, exact: true }).count() !== 1) {
+      throw new Error(`${profile.name}: canceled Entra callback is missing ${action}`);
+    }
+  }
+  const callbackAxe = await new AxeBuilder({ page }).analyze();
+  if (callbackAxe.violations.some(({ impact }) => impact === 'serious' || impact === 'critical')) {
+    throw new Error(`${profile.name}: inaccessible Entra callback recovery page`);
+  }
+  await page.screenshot({ path: `${artifacts}/live-auth-error-${profile.name}.png`, fullPage: true });
   await page.goto(`${base}/demo`, { waitUntil: 'networkidle' });
   await page.keyboard.press('Tab');
   if (!(await page.locator(':focus').isVisible())) throw new Error(`${profile.name}: keyboard focus is not visible`);

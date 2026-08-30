@@ -4,7 +4,9 @@ set -eu
 base_url=${1:-https://agent-diff-gate.sociobot.in}
 status_file=$(mktemp)
 headers_file=$(mktemp)
-trap 'rm -f "$status_file" "$headers_file"' EXIT
+callback_file=$(mktemp)
+callback_headers=$(mktemp)
+trap 'rm -f "$status_file" "$headers_file" "$callback_file" "$callback_headers"' EXIT
 
 ready=false
 for _attempt in $(seq 1 30); do
@@ -25,4 +27,19 @@ done
 
 [ "$ready" = true ]
 
-printf 'Live identity configuration is ready and redirects only to Sociobot Entra with PKCE.\n'
+curl --fail --silent --show-error --dump-header "$callback_headers" \
+  "$base_url/auth/callback?error=access_denied&error_description=User%20cancelled" >"$callback_file"
+grep -Fq '<h1>Sign-in did not complete</h1>' "$callback_file"
+grep -Fq 'Try sign-in again' "$callback_file"
+grep -Fq 'Return to Diff Gate' "$callback_file"
+grep -Fq 'Try it with sample data' "$callback_file"
+if grep -Fq 'missing field `code`' "$callback_file"; then
+  printf 'Entra error callback exposed raw deserialization text.\n' >&2
+  exit 1
+fi
+awk 'BEGIN { IGNORECASE=1; html=0; robots=0 }
+  /^content-type:[[:space:]]*text\/html/ { html=1 }
+  /^x-robots-tag:[[:space:]]*noindex/ { robots=1 }
+  END { exit !(html && robots) }' "$callback_headers"
+
+printf 'Live identity configuration uses Sociobot Entra PKCE and its canceled callback has a product recovery screen.\n'

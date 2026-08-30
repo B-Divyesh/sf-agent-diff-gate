@@ -356,3 +356,29 @@ test('dedicated 404 document keeps the public header and metadata', async ({ pag
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', 'https://agent-diff-gate.sociobot.in/social.webp');
   await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', 'https://agent-diff-gate.sociobot.in/social.webp');
 });
+
+test('regression: canceled Entra callback renders an accessible recovery screen', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+
+  const response = await page.goto('http://127.0.0.1:4174/auth/callback?error=access_denied&error_description=User%20cancelled');
+
+  expect(response?.status()).toBe(200);
+  await expect(page).toHaveTitle('Sign-in did not complete — Diff Gate');
+  await expect(page.getByRole('heading', { level: 1, name: 'Sign-in did not complete' })).toBeVisible();
+  await expect(page.getByText('Sign-in was cancelled or your account did not grant access.')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Try sign-in again' })).toHaveAttribute('href', '/auth/entra');
+  await expect(page.getByRole('link', { name: 'Return to Diff Gate' })).toHaveAttribute('href', '/');
+  await expect(page.getByRole('link', { name: 'Try it with sample data' })).toHaveAttribute('href', '/?demo=1');
+  await expect(page.getByText(/missing field `code`/)).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  const results = await new AxeBuilder({ page }).analyze();
+  const blocking = results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical');
+  expect(blocking).toEqual([]);
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Skip to content' })).toBeFocused();
+  expect(errors).toEqual([]);
+  await context.close();
+});

@@ -1,6 +1,6 @@
 # Landing-page copy audit
 
-Audited again against the verification-23 repair on 2026-08-30. Commands and field labels are included where they convey visitor-facing meaning. No sentence exceeds 22 words or uses a banned marketing word.
+Audited again against the verification-24 repair on 2026-08-30. Commands and field labels are included where they convey visitor-facing meaning. No sentence exceeds 22 words or uses a banned marketing word.
 
 | Sentence | Words | Flag |
 |---|---:|---|
@@ -24,6 +24,13 @@ Audited again against the verification-23 repair on 2026-08-30. Commands and fie
 | Diff Gate records a review decision. | 6 | tested: no-merge-action |
 | Your team merges code outside Diff Gate. | 7 | tested: no-merge-action |
 | Review agent-authored changes before merge. | 5 | — |
+| Sign-in did not complete | 4 | — |
+| Sign-in was cancelled or your account did not grant access. | 10 | — |
+| No review data was changed. | 5 | — |
+| Try again, return to Diff Gate, or open the sample. | 10 | — |
+| Try sign-in again | 4 | — |
+| Return to Diff Gate | 4 | — |
+| Try it with sample data | 6 | tested: sample-sandbox |
 
 ## Terminology
 

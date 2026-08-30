@@ -518,21 +518,115 @@ async fn entra_login(State(state): State<AppState>) -> Result<Redirect, AppError
 }
 #[derive(Deserialize)]
 struct OAuthCallback {
-    code: String,
-    state: String,
+    code: Option<String>,
+    state: Option<String>,
+    error: Option<String>,
+    error_description: Option<String>,
+}
+fn oauth_error_message(error: Option<&str>, description: Option<&str>) -> &'static str {
+    let description = description.unwrap_or_default().to_ascii_lowercase();
+    match error.unwrap_or_default() {
+        "access_denied" => "Sign-in was cancelled or your account did not grant access.",
+        "temporarily_unavailable" | "server_error" => {
+            "Sociobot could not complete sign-in right now."
+        }
+        "interaction_required" | "login_required" | "consent_required" => {
+            "Sociobot needs you to sign in again."
+        }
+        _ if description.contains("cancel") || description.contains("denied") => {
+            "Sign-in was cancelled or your account did not grant access."
+        }
+        _ => "Sociobot did not complete sign-in.",
+    }
+}
+fn oauth_error_page(message: &str) -> Response {
+    let body = format!(
+        r##"<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#17212B">
+    <meta name="description" content="Return to Diff Gate after a Sociobot sign-in problem.">
+    <meta name="robots" content="noindex">
+    <link rel="canonical" href="https://agent-diff-gate.sociobot.in/auth/callback">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <meta property="og:title" content="Sign-in did not complete — Diff Gate">
+    <meta property="og:description" content="Return to Diff Gate after a Sociobot sign-in problem.">
+    <meta property="og:image" content="https://agent-diff-gate.sociobot.in/social.webp">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Sign-in did not complete — Diff Gate">
+    <meta name="twitter:description" content="Return to Diff Gate after a Sociobot sign-in problem.">
+    <meta name="twitter:image" content="https://agent-diff-gate.sociobot.in/social.webp">
+    <link rel="stylesheet" href="/404.css">
+    <title>Sign-in did not complete — Diff Gate</title>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header>
+      <a class="wordmark" href="/">≡ Diff Gate</a>
+      <nav aria-label="Main navigation"><a href="/?demo=1">Demo</a><a href="/#how">How it works</a><a href="/privacy">Privacy</a></nav>
+    </header>
+    <main id="main">
+      <p class="eyebrow">Sign-in error</p>
+      <h1>Sign-in did not complete</h1>
+      <p>{message}</p>
+      <p>No review data was changed. Try again, return to Diff Gate, or open the sample.</p>
+      <div class="actions">
+        <a class="action" href="/auth/entra">Try sign-in again</a>
+        <a class="secondary-action" href="/">Return to Diff Gate</a>
+        <a class="secondary-action" href="/?demo=1">Try it with sample data</a>
+      </div>
+    </main>
+    <footer><span>Review agent-authored changes before merge.</span><span><a href="/privacy">Privacy</a><a href="/terms">Terms</a><span>Built by Param Factory</span></span><small>v0.5.0</small></footer>
+  </body>
+</html>"##
+    );
+    (
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, "text/html; charset=utf-8"),
+            (header::HeaderName::from_static("x-robots-tag"), "noindex"),
+        ],
+        body,
+    )
+        .into_response()
 }
 async fn entra_callback(
     State(state): State<AppState>,
     axum::extract::Query(query): axum::extract::Query<OAuthCallback>,
 ) -> Result<Response, AppError> {
+    if query.error.is_some() || query.error_description.is_some() {
+        if let Some(oauth_state) = query.state.as_deref().filter(|value| !value.is_empty()) {
+            let _ = sqlx::query("DELETE FROM oauth_pkce WHERE state=?")
+                .bind(oauth_state)
+                .execute(&state.db)
+                .await;
+        }
+        return Ok(oauth_error_page(oauth_error_message(
+            query.error.as_deref(),
+            query.error_description.as_deref(),
+        )));
+    }
     if !state.identity.ready() {
         return Err(AppError::service_unavailable(
             "Sociobot Entra sign-in is not configured on this deployment.",
         ));
     }
+    let Some(code) = query.code.as_deref().filter(|value| !value.is_empty()) else {
+        return Ok(oauth_error_page(
+            "Sociobot returned without the sign-in details Diff Gate needs.",
+        ));
+    };
+    let Some(oauth_state) = query.state.as_deref().filter(|value| !value.is_empty()) else {
+        return Ok(oauth_error_page(
+            "That Sociobot sign-in link is incomplete or expired.",
+        ));
+    };
     let saved: Option<(String, String)> =
         sqlx::query_as("SELECT nonce,verifier FROM oauth_pkce WHERE state=?")
-            .bind(&query.state)
+            .bind(oauth_state)
             .fetch_optional(&state.db)
             .await?;
     let Some((nonce, verifier)) = saved else {
@@ -541,7 +635,7 @@ async fn entra_callback(
         ));
     };
     sqlx::query("DELETE FROM oauth_pkce WHERE state=?")
-        .bind(&query.state)
+        .bind(oauth_state)
         .execute(&state.db)
         .await?;
     let authority = state.identity.authority.as_deref().unwrap_or_default();
@@ -554,7 +648,7 @@ async fn entra_callback(
                 "client_id",
                 state.identity.client_id.as_deref().unwrap_or_default(),
             ),
-            ("code", &query.code),
+            ("code", code),
             ("redirect_uri", &state.identity.callback_url()),
             ("grant_type", "authorization_code"),
             ("code_verifier", &verifier),
@@ -2405,6 +2499,80 @@ mod tests {
             .get("code_challenge")
             .is_some_and(|value| value.len() == 43));
         assert!(!query.contains_key("client_secret"));
+    }
+    #[tokio::test]
+    async fn entra_callback_error_renders_recovery_before_requiring_code() {
+        let db = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        create_schema(&db).await.unwrap();
+        sqlx::query("INSERT INTO oauth_pkce (state,nonce,verifier,created_at) VALUES ('cancel-state','nonce','verifier',?)")
+            .bind(Utc::now().to_rfc3339())
+            .execute(&db)
+            .await
+            .unwrap();
+        let identity = EntraConfig {
+            authority: Some(SOCIOBOT_AUTHORITY.into()),
+            client_id: Some(SOCIOBOT_CLIENT_ID.into()),
+            tenant_id: SOCIOBOT_TENANT_ID.into(),
+            public_base: "https://agent-diff-gate.sociobot.in".into(),
+            team_claim: "oid".into(),
+        };
+        let service = app(AppState {
+            db: db.clone(),
+            build: "callback-regression".into(),
+            storage_id: "callback-fixture".into(),
+            stateful_production_ready: true,
+            limits: Arc::new(Mutex::new(HashMap::new())),
+            identity,
+            github: GithubConfig::default(),
+            github_api_base: "https://api.github.com".into(),
+            http: Client::new(),
+        });
+
+        let response = service
+            .oneshot(
+                Request::get("/auth/callback?error=access_denied&error_description=User%20cancelled%20%3Cscript%3E&state=cancel-state")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers()[header::CONTENT_TYPE],
+            "text/html; charset=utf-8"
+        );
+        assert_eq!(response.headers()[header::CACHE_CONTROL], "no-cache");
+        assert_eq!(response.headers()["x-robots-tag"], "noindex");
+        assert!(response.headers()["content-security-policy"]
+            .to_str()
+            .unwrap()
+            .contains("frame-ancestors 'none'"));
+        let body = String::from_utf8(
+            to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap()
+                .to_vec(),
+        )
+        .unwrap();
+        assert!(body.contains("<h1>Sign-in did not complete</h1>"));
+        assert!(body.contains("Sign-in was cancelled or your account did not grant access."));
+        assert!(body.contains("href=\"/auth/entra\">Try sign-in again</a>"));
+        assert!(body.contains("href=\"/\">Return to Diff Gate</a>"));
+        assert!(body.contains("href=\"/?demo=1\">Try it with sample data</a>"));
+        assert_eq!(body.matches("<h1").count(), 1);
+        assert!(!body.contains("missing field"));
+        assert!(!body.contains("<script>"));
+        let pending: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM oauth_pkce WHERE state='cancel-state'")
+                .fetch_one(&db)
+                .await
+                .unwrap();
+        assert_eq!(pending, 0);
     }
     #[tokio::test]
     async fn durable_storage_identity_survives_database_reopen() {
