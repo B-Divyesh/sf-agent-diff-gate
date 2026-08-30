@@ -12,7 +12,7 @@ Audited again against the verification-24 repair on 2026-08-30. Commands and fie
 | Signed-in teams see only their review packets. | 7 | tested: team-packet-boundary |
 | Export the sample packet as JSON. | 6 | tested: packet-export |
 | Sign in before reviewing repository changes. | 6 | — |
-| Packets are visible only to that reviewer’s team. | 8 | tested: team-packet-boundary |
+| Packets are visible only to their signed-in team. | 8 | tested: team-packet-boundary |
 | Team workspace is temporarily unavailable | 5 | — |
 | Diff Gate is preparing its durable review workspace. | 8 | — |
 | Try again shortly. | 3 | — |

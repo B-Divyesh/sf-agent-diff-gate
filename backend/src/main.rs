@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{rejection::JsonRejection, FromRequest, Path, Request, State},
     http::{header, HeaderMap, HeaderName, HeaderValue, StatusCode},
     middleware,
     response::{IntoResponse, Redirect, Response},
@@ -12,7 +12,7 @@ use jsonwebtoken::{
     decode, decode_header, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation,
 };
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{sqlite::SqlitePoolOptions, FromRow, SqlitePool};
 use std::{
@@ -250,6 +250,38 @@ struct TestEvidenceInput {
 #[derive(Deserialize)]
 struct ImportRequest {
     pr_url: String,
+}
+
+/// JSON extraction is part of the API boundary. Axum's default rejection text
+/// includes implementation wording, so convert it into one stable product
+/// error before any handler can return a response.
+struct AppJson<T>(T);
+
+#[axum::async_trait]
+impl<S, T> FromRequest<S> for AppJson<T>
+where
+    S: Send + Sync,
+    T: DeserializeOwned + Send,
+{
+    type Rejection = AppError;
+
+    async fn from_request(request: Request, state: &S) -> Result<Self, Self::Rejection> {
+        Json::<T>::from_request(request, state)
+            .await
+            .map(|Json(value)| Self(value))
+            .map_err(|rejection| AppError::invalid_json_input(&json_rejection_details(&rejection)))
+    }
+}
+
+fn json_rejection_details(rejection: &JsonRejection) -> String {
+    let mut details = rejection.to_string();
+    let mut source = std::error::Error::source(rejection);
+    while let Some(error) = source {
+        details.push(' ');
+        details.push_str(&error.to_string());
+        source = error.source();
+    }
+    details
 }
 #[derive(Deserialize)]
 struct GithubPull {
@@ -750,7 +782,7 @@ async fn list_packet_audit(
 async fn create_packet(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(input): Json<NewPacket>,
+    AppJson(input): AppJson<NewPacket>,
 ) -> Result<(StatusCode, Json<Packet>), AppError> {
     let who = session(&state, &headers).await?;
     if input.title.trim().is_empty() || input.title.len() > 180 {
@@ -840,7 +872,7 @@ async fn get_settings(
 async fn update_settings(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(input): Json<SettingsUpdate>,
+    AppJson(input): AppJson<SettingsUpdate>,
 ) -> Result<Json<TeamSettings>, AppError> {
     let who = session(&state, &headers).await?;
     if !(1..=MAX_RETENTION_DAYS).contains(&input.retention_days) {
@@ -916,7 +948,7 @@ async fn list_repository_policies(
 async fn save_repository_policy(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(input): Json<RepositoryPolicyUpdate>,
+    AppJson(input): AppJson<RepositoryPolicyUpdate>,
 ) -> Result<Json<RepositoryPolicy>, AppError> {
     let who = session(&state, &headers).await?;
     let repository = normalized_repository(&input.repository)
@@ -1126,7 +1158,7 @@ async fn update_packet_evidence(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
-    Json(input): Json<EvidenceUpdate>,
+    AppJson(input): AppJson<EvidenceUpdate>,
 ) -> Result<Json<Packet>, AppError> {
     let who = session(&state, &headers).await?;
     let packet = sqlx::query_as::<_, Packet>("SELECT id,title,owner,status,data,created_at,approved_by,approved_at,source_url FROM packets WHERE id=? AND team_id=?").bind(&id).bind(&who.team_id).fetch_optional(&state.db).await?.ok_or_else(|| AppError::not_found("That review packet was not found in this team."))?;
@@ -1164,7 +1196,7 @@ async fn approve_packet(
     State(state): State<AppState>,
     headers: HeaderMap,
     Path(id): Path<String>,
-    Json(input): Json<Approval>,
+    AppJson(input): AppJson<Approval>,
 ) -> Result<Json<Packet>, AppError> {
     let who = session(&state, &headers).await?;
     let packet = sqlx::query_as::<_, Packet>("SELECT id,title,owner,status,data,created_at,approved_by,approved_at,source_url FROM packets WHERE id=? AND team_id=?").bind(&id).bind(&who.team_id).fetch_optional(&state.db).await?.ok_or_else(|| AppError::not_found("That review packet was not found in this team."))?;
@@ -1563,7 +1595,7 @@ async fn github_packet_contents(
 async fn import_github_pr(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(input): Json<ImportRequest>,
+    AppJson(input): AppJson<ImportRequest>,
 ) -> Result<(StatusCode, Json<Packet>), AppError> {
     let who = session(&state, &headers).await?;
     let (title, owner, source_url, data) =
@@ -1837,6 +1869,49 @@ impl AppError {
             status: StatusCode::BAD_REQUEST,
             message: message.into(),
         }
+    }
+    fn invalid_json_input(rejection: &str) -> Self {
+        let message = [
+            ("title", "Invalid title. Add a text title and try again."),
+            (
+                "retention_days",
+                "Invalid retention days. Use a whole number and try again.",
+            ),
+            (
+                "repository",
+                "Invalid repository. Use owner/repository and try again.",
+            ),
+            (
+                "rules",
+                "Invalid policy rules. Add each path and required owner.",
+            ),
+            (
+                "data",
+                "Invalid review data. Send the review data as a JSON object.",
+            ),
+            (
+                "test_evidence",
+                "Invalid test evidence. Add a command and result.",
+            ),
+            (
+                "command",
+                "Invalid test command. Add the command that was run.",
+            ),
+            ("result", "Invalid test result. Add the command result."),
+            ("note", "Invalid approval note. Send text or omit the note."),
+            (
+                "pr_url",
+                "Invalid pull request URL. Add a GitHub pull request URL.",
+            ),
+        ]
+        .iter()
+        .find_map(|(field, message)| {
+            rejection
+                .contains(&format!("`{field}`"))
+                .then_some(*message)
+        })
+        .unwrap_or("Invalid request data. Send a complete JSON object and try again.");
+        Self::bad(message)
     }
     fn unauthorized(message: &str) -> Self {
         Self {
@@ -2221,6 +2296,30 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+    #[tokio::test]
+    async fn malformed_json_returns_a_stable_actionable_json_error() {
+        let (app, _) = test_app().await;
+        let response = app
+            .oneshot(
+                Request::post("/api/packets")
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from("{}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        assert!(response.headers()[header::CONTENT_TYPE]
+            .to_str()
+            .unwrap()
+            .starts_with("application/json"));
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&body).unwrap(),
+            serde_json::json!({"error":"Invalid title. Add a text title and try again."})
+        );
+        assert!(!String::from_utf8_lossy(&body).contains("deserialize"));
     }
     #[tokio::test]
     async fn packet_reads_and_approvals_are_scoped_to_the_signed_in_team() {

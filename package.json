@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "test": "npm run test:unit && npm run build && playwright test",
+    "test": "npm run test:unit && npm run build && npm run test:browser",
     "test:unit": "node --test unit/*.test.mjs",
-    "test:browser": "playwright test",
+    "test:browser": "./scripts/test-browser.sh",
     "test:live-identity": "./scripts/verify-live-identity.sh",
     "preview": "vite preview --host 0.0.0.0"
   },
