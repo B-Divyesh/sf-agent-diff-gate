@@ -9,6 +9,7 @@ import {
   renderProductionTemplate,
 } from '../deploy/production-contract.mjs';
 import { assertRateLimitResults } from '../deploy/live-rate-limit.mjs';
+import { assertHealthIdentityResults } from '../deploy/live-health-identity.mjs';
 
 const runtime = {
   PUBLIC_BASE_URL: 'https://agent-diff-gate.sociobot.in',
@@ -25,6 +26,7 @@ const verifier17CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate
 const verifier19CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:9df61fc1e555';
 const verifier20CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:a1eaeea89db';
 const verifier21CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:ce5bf429b0b5';
+const verifier22CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:52b389fd8f0b';
 
 function factoryStatelessApp() {
   return {
@@ -142,6 +144,24 @@ function verifier21LiveApp() {
   const app = factoryStatelessApp();
   app.properties.latestRevisionName = 'sf-agent-diff-gate--0000079';
   app.properties.template.containers[0].image = verifier21CandidateImage;
+  app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
+  app.properties.template.scale = {
+    cooldownPeriod: 300,
+    maxReplicas: 3,
+    minReplicas: 1,
+    pollingInterval: 30,
+    rules: null,
+  };
+  return app;
+}
+
+function verifier22LiveApp() {
+  // Exact read-only control-plane capture from verification 22. Under load,
+  // revision 0000084 reached three replicas and exposed three independent
+  // storage identities while every real-work route failed closed.
+  const app = factoryStatelessApp();
+  app.properties.latestRevisionName = 'sf-agent-diff-gate--0000084';
+  app.properties.template.containers[0].image = verifier22CandidateImage;
   app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
   app.properties.template.scale = {
     cooldownPeriod: 300,
@@ -420,6 +440,64 @@ test('regression: verifier 21 exact candidate deployment is rejected, then repai
     },
   };
   assert.doesNotThrow(() => assertProductionContract(repaired, options));
+});
+
+test('regression: verifier 22 fail-closed topology and split storage identities are rejected', () => {
+  const failingLiveConfiguration = verifier22LiveApp();
+  const options = {
+    image: verifier22CandidateImage,
+    storageName,
+    runtime,
+  };
+
+  assert.deepEqual(productionContractErrors(failingLiveConfiguration, options), [
+    'SQLite requires exactly one replica',
+    'Azure Files volume data must use agent-diff-gate-data-v4',
+    'Azure Files volume data must be mounted at /data',
+    'DATABASE_URL must match the production contract',
+    'PUBLIC_BASE_URL must match the production contract',
+    'ENTRA_AUTHORITY must match the production contract',
+    'ENTRA_TENANT_ID must match the production contract',
+    'ENTRA_CLIENT_ID must match the production contract',
+    'ENTRA_TEAM_CLAIM must match the production contract',
+    'DEPLOYMENT_CONFIG_VERSION must match the production contract',
+  ]);
+
+  const reportedStorageIds = [
+    'd1210494-95b7-4cf5-b96d-6be8ee0d154d',
+    'd6eab37a-4bc0-430e-9ff3-4c42095a9826',
+    '98c2b1d0-45d0-47f7-aaef-077098da9b3c',
+  ];
+  const failedHealthProbe = Array.from({ length: 100 }, (_, index) => ({
+    status: 'unsafe_configuration',
+    build: '52b389fd8f0b4886021b8fa46dc196dfc3addaf0',
+    storage_id: reportedStorageIds[index % reportedStorageIds.length],
+  }));
+  assert.throws(
+    () =>
+      assertHealthIdentityResults(failedHealthProbe, {
+        expectedBuild: '52b389fd8f0b4886021b8fa46dc196dfc3addaf0',
+      }),
+    /health probe exposed 3 storage identities/,
+  );
+
+  const repaired = {
+    properties: {
+      configuration: { activeRevisionsMode: 'Single' },
+      template: renderProductionTemplate(failingLiveConfiguration, options),
+    },
+  };
+  assert.doesNotThrow(() => assertProductionContract(repaired, options));
+
+  const healthyProbe = Array.from({ length: 100 }, () => ({
+    status: 'ok',
+    build: 'repair-build',
+    storage_id: 'one-durable-identity',
+  }));
+  assert.deepEqual(assertHealthIdentityResults(healthyProbe, { expectedBuild: 'repair-build' }), {
+    storageId: 'one-durable-identity',
+    responses: 100,
+  });
 });
 
 test('regression: verifier 16 multiplied rate allowance fails the live probe', () => {

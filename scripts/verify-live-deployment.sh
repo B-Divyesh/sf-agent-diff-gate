@@ -24,6 +24,21 @@ assert_control_plane() {
 }
 assert_control_plane
 
+wait_for_one_running_replica() {
+  for _attempt in $(seq 1 48); do
+    revision=$(az containerapp show --resource-group "$resource_group" --name "$app_name" \
+      --query properties.latestRevisionName --output tsv)
+    running=$(az containerapp replica list --resource-group "$resource_group" --name "$app_name" \
+      --revision "$revision" --query "[?properties.runningState == 'Running'] | length(@)" --output tsv)
+    if [ "$running" = 1 ]; then return 0; fi
+    sleep 5
+  done
+  printf 'Latest revision did not converge to exactly one running replica.\n' >&2
+  return 1
+}
+
+wait_for_one_running_replica
+
 wait_for_health() {
   for _attempt in $(seq 1 48); do
     if health=$(curl --fail --silent "$base_url/health") && printf '%s' "$health" | jq -e --arg build "$expected_build" \
@@ -48,13 +63,7 @@ concurrent_health_identity() {
     curl --fail --silent "$base_url/health" >"$sample_dir/$request.json" &
   done
   wait
-  jq -s -e --arg build "$expected_build" '
-    length == 100 and
-    (map(.status) | unique) == ["ok"] and
-    (map(.build) | unique) == [$build] and
-    (map(.storage_id) | unique | length) == 1
-  ' "$sample_dir"/*.json >/dev/null
-  jq -s -r 'map(.storage_id) | unique[0]' "$sample_dir"/*.json
+  node "$repo_dir/deploy/live-health-identity.mjs" "$expected_build" "$sample_dir"/*.json
   rm -r "$sample_dir"
 }
 
@@ -84,6 +93,7 @@ if [ "$replace" = "--replace" ]; then
   test "$after_id" = "$before_id"
   test "$(printf '%s' "$after" | jq -r .build)" = "$expected_build"
   assert_control_plane
+  wait_for_one_running_replica
   test "$(concurrent_health_identity)" = "$before_id"
   node "$repo_dir/deploy/live-rate-limit.mjs" "$base_url"
 fi
