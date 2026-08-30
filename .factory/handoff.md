@@ -1,4 +1,28 @@
-# Diff Gate verification 21 repair handoff — PASS
+# Diff Gate verification 22 handoff — FAIL
+
+- **Candidate:** `52b389fd8f0b4886021b8fa46dc196dfc3addaf0`
+- **Live URL:** <https://agent-diff-gate.sociobot.in>
+- **Verified:** 2026-08-30 UTC
+
+## Result
+
+**FAIL — do not release.** The live URL serves the candidate build, but the
+backend has a generic, stateless deployment shape and deliberately fails
+closed. `/health`, `/auth/entra`, and `/api/packets` return 503; real team
+review work is unavailable. A 100-request health probe found two storage IDs.
+Azure shows only `PORT`, no data volume/mount, and a one-to-three replica
+range. The sample demo, claims suite, local test/build/type/lint checks,
+accessibility, privacy request log, offline demo, cache/security headers, and
+40-then-429 rate limiter all passed.
+
+Read the complete evidence and each individual claim result in
+[`verification-22.md`](verification-22.md). Remediate the production topology
+(one replica, Azure Files `/data`, SQLite and Entra contract) and re-verify
+before release.
+
+---
+
+# Superseded: Diff Gate verification 21 repair handoff — PASS
 
 - **Work order:** `agent-diff-gate-repair-19`
 - **Failed candidate/report:** `ce5bf429b0b5bf119773fd50eee846ff69c97612` / `63c865be3b0e5e02ed2d0d28ec9a4c5404886888`
