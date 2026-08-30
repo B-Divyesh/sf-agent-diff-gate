@@ -1,0 +1,1 @@
+Live desktop, 390px mobile, keyboard, accessibility, privacy, and offline demo checks passed.

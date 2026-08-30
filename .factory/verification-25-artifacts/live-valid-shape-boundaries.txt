@@ -1,0 +1,3 @@
+401 POST /api/packets {"error":"Sign in with Sociobot before opening team packets."}
+401 PUT /api/settings {"error":"Sign in with Sociobot before opening team packets."}
+401 POST /api/github/import {"error":"Sign in with Sociobot before opening team packets."}

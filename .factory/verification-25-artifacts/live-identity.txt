@@ -1,0 +1,1 @@
+Live identity configuration uses Sociobot Entra PKCE and its canceled callback has a product recovery screen.

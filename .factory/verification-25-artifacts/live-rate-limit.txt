@@ -1,0 +1,1 @@
+Live rate limit passed: 40 accepted, 60 returned 429, and every rejection sent Retry-After: 1.

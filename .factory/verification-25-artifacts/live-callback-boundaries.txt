@@ -1,0 +1,3 @@
+200  => Sign-in did not complete |  Sign-in did not complete — Diff Gate Skip to content ≡ Diff Gate Demo How it works Privacy Sign-in error Sign-in did not complete Sociobot returned without the sign-in details
+400 ?code=bad&state=bad =>  | {"error":"That Sociobot sign-in link expired. Start again."}
+200 ?error=server_error => Sign-in did not complete |  Sign-in did not complete — Diff Gate Skip to content ≡ Diff Gate Demo How it works Privacy Sign-in error Sign-in did not complete Sociobot could not complete sign-in right now

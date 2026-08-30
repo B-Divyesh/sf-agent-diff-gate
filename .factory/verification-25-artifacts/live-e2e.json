@@ -1,0 +1,209 @@
+{
+  "base": "https://agent-diff-gate.sociobot.in",
+  "desktop": {
+    "firstRead": {
+      "status": 200,
+      "title": "Diff Gate — Review agent-authored changes before merge",
+      "h1": "Review agent-authored changes before merge",
+      "audience": "For small software teams that need a required owner and test evidence before an agent-authored change lands.",
+      "action": "Try it with sample data",
+      "actionOutcome": "Opens a sample packet with changed files, test evidence, and owner checks."
+    },
+    "demo": {
+      "banner": "Demo — sample data, nothing is saved\nReset demoStart for real",
+      "heading": "See an agent-authored change under review",
+      "changedFiles": [
+        "src/policy/retention.ts",
+        "db/migrations/20260828_retention.sql",
+        "src/api/export.ts"
+      ],
+      "checks": [
+        "Contract changed",
+        "Migration found",
+        "Test evidence",
+        "Risky path"
+      ],
+      "approveInitiallyDisabled": true,
+      "storageBefore": {
+        "keys": [
+          "demo:diff-gate"
+        ],
+        "demo": "{\"title\":\"Add organization-level retention controls\",\"owner\":\"Mira Chen\",\"source\":\"PR #482 · agent-authored\",\"changed\":[\"src/policy/retention.ts\",\"db/migrations/20260828_retention.sql\",\"src/api/export.ts\"],\"checks\":[{\"label\":\"Contract changed\",\"detail\":\"Export API now returns retention state.\",\"state\":\"ready\"},{\"label\":\"Migration found\",\"detail\":\"Adds retention_days and backfills 14,382 rows.\",\"state\":\"risk\"},{\"label\":\"Test evidence\",\"detail\":\"pnpm test: 214 passed · migration check: passed\",\"state\":\"ready\"},{\"label\":\"Risky path\",\"detail\":\"db/migrations requires database owner sign-off.\",\"state\":\"risk\"}]}"
+      }
+    },
+    "lastReviewFocus": {
+      "visible": true,
+      "outlineStyle": "solid",
+      "outlineWidth": "3px",
+      "outlineColor": "rgb(201, 76, 59)"
+    },
+    "approveEnabledAfterChecks": true,
+    "export": {
+      "filename": "diff-gate-packet.json",
+      "title": "Add organization-level retention controls",
+      "owner": "Mira Chen",
+      "changedCount": 3,
+      "checkCount": 4,
+      "states": [
+        "ready",
+        "done",
+        "ready",
+        "done"
+      ]
+    },
+    "approved": {
+      "stamp": "APPROVED\nrecord retained",
+      "storage": "{\"title\":\"Add organization-level retention controls\",\"owner\":\"Mira Chen\",\"source\":\"PR #482 · agent-authored\",\"changed\":[\"src/policy/retention.ts\",\"db/migrations/20260828_retention.sql\",\"src/api/export.ts\"],\"checks\":[{\"label\":\"Contract changed\",\"detail\":\"Export API now returns retention state.\",\"state\":\"ready\"},{\"label\":\"Migration found\",\"detail\":\"Adds retention_days and backfills 14,382 rows.\",\"state\":\"done\"},{\"label\":\"Test evidence\",\"detail\":\"pnpm test: 214 passed · migration check: passed\",\"state\":\"ready\"},{\"label\":\"Risky path\",\"detail\":\"db/migrations requires database owner sign-off.\",\"state\":\"done\"}],\"status\":\"approved\",\"approved_by\":\"Mira Chen\",\"approved_at\":\"2026-08-30T07:01:38.296Z\"}"
+    },
+    "reset": {
+      "stamp": "HOLD\n2 required owner checks",
+      "markReviewedCount": 2
+    },
+    "startReal": {
+      "demoKey": null,
+      "signInVisible": true
+    }
+  },
+  "mobile": {
+    "firstAction": {
+      "box": {
+        "x": 20,
+        "y": 542.203125,
+        "width": 207.609375,
+        "height": 46.3125
+      },
+      "fullyVisible": true
+    },
+    "homeOverflow": false,
+    "demoOverflow": false,
+    "minInteractiveTarget": 44,
+    "runningAnimationsReducedMotion": 0,
+    "overflowAt200PercentText": false
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-r2CfzYxf.js"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-rQ7R4Jb-.css"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/api/auth/status"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/change-control.webp"
+    },
+    {
+      "method": "GET",
+      "url": "https://agent-diff-gate.sociobot.in/api/auth/status"
+    }
+  ],
+  "responses": [
+    {
+      "url": "https://agent-diff-gate.sociobot.in/",
+      "status": 200,
+      "headers": {
+        "accept-ranges": "bytes",
+        "cache-control": "no-cache",
+        "content-length": "1522",
+        "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+        "content-type": "text/html",
+        "date": "Sun, 30 Aug 2026 07:01:36 GMT",
+        "last-modified": "Sun, 30 Aug 2026 06:16:43 GMT",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "x-content-type-options": "nosniff"
+      }
+    },
+    {
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-rQ7R4Jb-.css",
+      "status": 200,
+      "headers": {
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+        "cache-control": "public, max-age=31536000, immutable",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "content-length": "12233",
+        "date": "Sun, 30 Aug 2026 07:01:37 GMT",
+        "content-type": "text/css",
+        "last-modified": "Sun, 30 Aug 2026 06:16:43 GMT"
+      }
+    },
+    {
+      "url": "https://agent-diff-gate.sociobot.in/assets/index-r2CfzYxf.js",
+      "status": 200,
+      "headers": {
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+        "cache-control": "public, max-age=31536000, immutable",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "content-length": "22863",
+        "date": "Sun, 30 Aug 2026 07:01:37 GMT",
+        "content-type": "text/javascript",
+        "last-modified": "Sun, 30 Aug 2026 06:16:43 GMT"
+      }
+    },
+    {
+      "url": "https://agent-diff-gate.sociobot.in/change-control.webp",
+      "status": 200,
+      "headers": {
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+        "cache-control": "public, max-age=3600, must-revalidate",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "x-content-type-options": "nosniff",
+        "accept-ranges": "bytes",
+        "content-length": "136640",
+        "date": "Sun, 30 Aug 2026 07:01:37 GMT",
+        "content-type": "image/webp",
+        "last-modified": "Sun, 30 Aug 2026 06:16:43 GMT"
+      }
+    },
+    {
+      "url": "https://agent-diff-gate.sociobot.in/api/auth/status",
+      "status": 200,
+      "headers": {
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+        "cache-control": "no-cache",
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-length": "183",
+        "date": "Sun, 30 Aug 2026 07:01:37 GMT",
+        "content-type": "application/json"
+      }
+    },
+    {
+      "url": "https://agent-diff-gate.sociobot.in/api/auth/status",
+      "status": 200,
+      "headers": {
+        "strict-transport-security": "max-age=31536000; includeSubDomains",
+        "content-security-policy": "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'",
+        "cache-control": "no-cache",
+        "x-content-type-options": "nosniff",
+        "referrer-policy": "strict-origin-when-cross-origin",
+        "content-length": "183",
+        "date": "Sun, 30 Aug 2026 07:01:38 GMT",
+        "content-type": "application/json"
+      }
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "origins": [
+    "https://agent-diff-gate.sociobot.in"
+  ],
+  "sameOriginOnly": true
+}
