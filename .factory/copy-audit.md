@@ -31,6 +31,12 @@ Audited again against the verification-24 repair on 2026-08-30. Commands and fie
 | Try sign-in again | 4 | — |
 | Return to Diff Gate | 4 | — |
 | Try it with sample data | 6 | tested: sample-sandbox |
+| Return to Diff Gate after a Sociobot sign-in problem. | 9 | — |
+| Sociobot could not complete sign-in right now. | 7 | — |
+| Sociobot needs you to sign in again. | 7 | — |
+| Sociobot did not complete sign-in. | 5 | — |
+| Sociobot returned without the sign-in details Diff Gate needs. | 9 | — |
+| That Sociobot sign-in link is incomplete or expired. | 9 | — |
 
 ## Terminology
 

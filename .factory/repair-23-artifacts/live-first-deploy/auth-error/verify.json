@@ -1,0 +1,14 @@
+{
+  "url": "https://agent-diff-gate.sociobot.in/auth/callback?error=access_denied&error_description=User%20cancelled",
+  "loadMs": 530,
+  "errors": [],
+  "a11y": {
+    "title": "Sign-in did not complete — Diff Gate",
+    "lang": "en",
+    "h1": 1,
+    "main": true,
+    "imgsMissingAlt": 0,
+    "buttonsUnlabeled": 0,
+    "textLength": 387
+  }
+}
