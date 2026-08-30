@@ -4,7 +4,7 @@
 - **Verifier report:** `14db48fd8cc59331c53a1b48ae360fb4bb3aab10`
 - **Failed candidate:** `1ef3f4bdfaf67e8a7517f46757ed20551e986b94`
 - **Repair commit:** `3d45555`
-- **Pushed branch state:** `main` at `445bd28`
+- **Pushed repair:** `3d45555` on `main`
 - **Verified:** 2026-08-30 UTC
 
 ## Repaired release blockers
