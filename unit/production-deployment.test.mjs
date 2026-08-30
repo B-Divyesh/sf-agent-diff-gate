@@ -27,6 +27,7 @@ const verifier19CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate
 const verifier20CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:a1eaeea89db';
 const verifier21CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:ce5bf429b0b5';
 const verifier22CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:52b389fd8f0b';
+const verifier23CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:3869a47e182c';
 
 function factoryStatelessApp() {
   return {
@@ -162,6 +163,24 @@ function verifier22LiveApp() {
   const app = factoryStatelessApp();
   app.properties.latestRevisionName = 'sf-agent-diff-gate--0000084';
   app.properties.template.containers[0].image = verifier22CandidateImage;
+  app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
+  app.properties.template.scale = {
+    cooldownPeriod: 300,
+    maxReplicas: 3,
+    minReplicas: 1,
+    pollingInterval: 30,
+    rules: null,
+  };
+  return app;
+}
+
+function verifier23LiveApp() {
+  // Exact read-only control-plane capture from verification 23. The factory
+  // post-turn container helper replaced the previously verified stateful
+  // template with a full PORT-only PUT after the repair script had finished.
+  const app = factoryStatelessApp();
+  app.properties.latestRevisionName = 'sf-agent-diff-gate--0000089';
+  app.properties.template.containers[0].image = verifier23CandidateImage;
   app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
   app.properties.template.scale = {
     cooldownPeriod: 300,
@@ -498,6 +517,49 @@ test('regression: verifier 22 fail-closed topology and split storage identities 
     storageId: 'one-durable-identity',
     responses: 100,
   });
+});
+
+test('regression: verifier 23 post-turn factory PUT is rejected and repaired atomically', () => {
+  const failingLiveConfiguration = verifier23LiveApp();
+  const options = {
+    image: verifier23CandidateImage,
+    storageName,
+    runtime,
+  };
+
+  assert.deepEqual(productionContractErrors(failingLiveConfiguration, options), [
+    'SQLite requires exactly one replica',
+    'Azure Files volume data must use agent-diff-gate-data-v4',
+    'Azure Files volume data must be mounted at /data',
+    'DATABASE_URL must match the production contract',
+    'PUBLIC_BASE_URL must match the production contract',
+    'ENTRA_AUTHORITY must match the production contract',
+    'ENTRA_TENANT_ID must match the production contract',
+    'ENTRA_CLIENT_ID must match the production contract',
+    'ENTRA_TEAM_CLAIM must match the production contract',
+    'DEPLOYMENT_CONFIG_VERSION must match the production contract',
+  ]);
+
+  const failedHealthProbe = Array.from({ length: 100 }, () => ({
+    status: 'unsafe_configuration',
+    build: '3869a47e182c9a2040d62280ee2e0cdc9260324f',
+    storage_id: 'bf5a48a2-41c2-4187-b478-375b02d83200',
+  }));
+  assert.throws(
+    () =>
+      assertHealthIdentityResults(failedHealthProbe, {
+        expectedBuild: '3869a47e182c9a2040d62280ee2e0cdc9260324f',
+      }),
+    /health statuses were \["unsafe_configuration"\]; expected \["ok"\]/,
+  );
+
+  const repaired = {
+    properties: {
+      configuration: { activeRevisionsMode: 'Single' },
+      template: renderProductionTemplate(failingLiveConfiguration, options),
+    },
+  };
+  assert.doesNotThrow(() => assertProductionContract(repaired, options));
 });
 
 test('regression: verifier 16 multiplied rate allowance fails the live probe', () => {

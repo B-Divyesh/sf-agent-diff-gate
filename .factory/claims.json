@@ -138,5 +138,12 @@
     "where": "README deploy description and production deployment verification",
     "test": "cargo test durable_storage_identity_survives_database_reopen",
     "sandbox": "create the SQLite schema in a temporary durable file, close it, reopen it as a replacement process, and assert the same store identity"
+  },
+  {
+    "id": "stateful-worker-deploy",
+    "claim": "The factory post-turn deployment delegates to Diff Gate's stateful production release.",
+    "where": "README deploy section and deploy/factory-container.sh",
+    "test": "npm run test:unit -- --test-name-pattern @claim:stateful-worker-deploy",
+    "sandbox": "invoke the repository deployment hook with the production slug and port against a fake release script; assert the stateful script is executed, then reject wrong product and port inputs separately"
   }
 ]

@@ -36,7 +36,7 @@ const SESSION_DAYS: i64 = 14;
 const DEFAULT_RETENTION_DAYS: i64 = 90;
 const MAX_RETENTION_DAYS: i64 = 3650;
 const DURABLE_DATABASE_URL: &str = "sqlite:/data/diff-gate.db?mode=rwc&vfs=unix-none";
-const DEPLOYMENT_CONFIG_VERSION: &str = "5";
+const DEPLOYMENT_CONFIG_VERSION: &str = "6";
 const PRODUCT_PUBLIC_BASE_URL: &str = "https://agent-diff-gate.sociobot.in";
 const SOCIOBOT_TENANT_ID: &str = "35c6fe40-0ec0-46b6-98c6-213ad4de6650";
 const SOCIOBOT_CLIENT_ID: &str = "25c704f4-465a-47af-80ab-2c489466b697";
