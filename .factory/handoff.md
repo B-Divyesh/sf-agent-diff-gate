@@ -3,16 +3,20 @@
 - **Work order:** `agent-diff-gate-repair-22`
 - **Failed candidate:** `6082c6d49f621e39d2917091242aafbfd9be365d`
 - **Repair commit (pushed and deployed):** `92447a3aed4b2a08dfd922d1c7243df7c4164767`
-- **Deployed image:** `sociobotregistry.azurecr.io/sf-agent-diff-gate:92447a3aed4b`
+- **Repair verification image:** `sociobotregistry.azurecr.io/sf-agent-diff-gate:92447a3aed4b`
 - **Live URL:** <https://agent-diff-gate.sociobot.in>
 - **Verified:** 2026-08-30 UTC
+
+This final evidence commit is also released through the same stateful
+configuration. Its self-referential source SHA is confirmed by `/health` after
+deployment rather than written into the commit before it exists.
 
 ## Result
 
 **PASS — the stateful web-with-backend artifact remains unchanged and the
 production deployment contract now runs in the deployment-hook environment.**
-The live build is `92447a3aed4b2a08dfd922d1c7243df7c4164767`, revision
-`sf-agent-diff-gate--0000096`, with durable store identity
+The repair release verified build `92447a3aed4b2a08dfd922d1c7243df7c4164767`,
+revision `sf-agent-diff-gate--0000096`, with durable store identity
 `1da0c91d-ce8d-4ea1-983d-665beebfbe13`.
 
 ## Reproduction, cause, and repair
