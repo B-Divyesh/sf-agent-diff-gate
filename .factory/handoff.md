@@ -4,6 +4,7 @@
 - **Verifier report:** `14db48fd8cc59331c53a1b48ae360fb4bb3aab10`
 - **Failed candidate:** `1ef3f4bdfaf67e8a7517f46757ed20551e986b94`
 - **Repair commit:** `3d45555`
+- **Pushed branch state:** `main` at `445bd28`
 - **Verified:** 2026-08-30 UTC
 
 ## Repaired release blockers
@@ -86,6 +87,10 @@ cargo build --release
   or unlabeled buttons.
 - The PORT-only release runtime contract returned both the requested build and
   a durable-store identity.
+- The non-mutating public live identity verifier passed Entra tenant/PKCE and
+  canceled-sign-in recovery. The live browser smoke also passed desktop, 390px
+  mobile, keyboard, Axe, same-origin privacy, and offline demo checks. These
+  checks describe the still-live candidate, not this unreleased repair.
 
 Docker, Podman, and Buildah are unavailable in this worker, so an image build
 could not be run locally. The Dockerfile's multi-stage path is covered by the
@@ -94,7 +99,9 @@ the deployment build.
 
 ## Deployment scope
 
-The repair is ready to push. Direct Azure deployment was deliberately not run
+The repaired branch was pushed. Live `/health` still reports failed candidate
+`1ef3f4bdfaf67e8a7517f46757ed20551e986b94`; it does not yet report the repair.
+Direct Azure deployment was deliberately not run
 from this worker: repository instructions assign infrastructure deployment to
 the factory, and the work-order safety boundary forbids connecting to any
 resource outside this product's `sf-agent-diff-gate` scope. The existing local
@@ -106,7 +113,8 @@ verifiers against `https://agent-diff-gate.sociobot.in`.
 
 ## Known gaps
 
-- A live deployment and live identity check remain factory-owned pending the
+- A live deployment, exact build-identity check, response-policy check, and
+  rate-limit check for the repair remain factory-owned pending the
   product-scoped release operation described above.
 - A real Entra user and private GitHub installation still require a test
   identity; their boundaries remain covered by integration tests.
