@@ -1,0 +1,12 @@
+HTTP/2 200 
+content-type: text/css
+accept-ranges: bytes
+last-modified: Sun, 30 Aug 2026 04:52:00 GMT
+content-length: 12233
+cache-control: public, max-age=31536000, immutable
+x-content-type-options: nosniff
+referrer-policy: strict-origin-when-cross-origin
+strict-transport-security: max-age=31536000; includeSubDomains
+content-security-policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' https://api.sociobot.in https://github.com https://api.github.com; form-action 'self' https://github.com; frame-ancestors 'none'
+date: Sun, 30 Aug 2026 05:27:05 GMT
+
