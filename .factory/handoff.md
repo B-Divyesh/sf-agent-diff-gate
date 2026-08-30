@@ -1,84 +1,60 @@
-# Diff Gate verification 23 repair handoff — PASS
+# Diff Gate repair 22 handoff — PASS
 
-- **Work order:** `agent-diff-gate-repair-21`
-- **Failed candidate/report:** `3869a47e182c9a2040d62280ee2e0cdc9260324f` / `d6e2c33d3033a84115af147f20237cd59cf74ab8`
-- **Repair code commit:** `ca4167b38584f4d44b1ceed1240f92f45661225f`
+- **Work order:** `agent-diff-gate-repair-22`
+- **Failed candidate:** `6082c6d49f621e39d2917091242aafbfd9be365d`
+- **Repair commit (pushed and deployed):** `92447a3aed4b2a08dfd922d1c7243df7c4164767`
+- **Deployed image:** `sociobotregistry.azurecr.io/sf-agent-diff-gate:92447a3aed4b`
 - **Live URL:** <https://agent-diff-gate.sociobot.in>
-- **Repaired and verified:** 2026-08-30 UTC
+- **Verified:** 2026-08-30 UTC
 
 ## Result
 
-**PASS — the production workflow is available again.** The deployed service
-uses one replica, durable Azure Files storage at `/data`, the production
-SQLite URL, and the Sociobot Entra configuration. Real-work routes no longer
-fail closed.
+**PASS — the stateful web-with-backend artifact remains unchanged and the
+production deployment contract now runs in the deployment-hook environment.**
+The live build is `92447a3aed4b2a08dfd922d1c7243df7c4164767`, revision
+`sf-agent-diff-gate--0000096`, with durable store identity
+`1da0c91d-ce8d-4ea1-983d-665beebfbe13`.
 
-## Reproduction and root cause
+## Reproduction, cause, and repair
 
-Before repair, live revision `sf-agent-diff-gate--0000089` ran candidate image
-`sociobotregistry.azurecr.io/sf-agent-diff-gate:3869a47e182c`. The application
-correctly rejected this unsafe deployment:
+The failure reproduced against the live candidate with the same restricted
+tool PATH used by the deployment hook:
 
-- `/health` returned HTTP 503 with `status:"unsafe_configuration"`, candidate
-  build `3869a47…`, and ephemeral storage ID `bf5a48a2…`.
-- `/api/auth/status` reported `service_ready:false`, no Entra sign-in, and no
-  GitHub App setup. `/api/packets` and `/auth/entra` returned HTTP 503.
-- Azure had only `PORT=8080`, scale `1–3`, and no volume or mount.
-- The repository live contract rejected the revision before making any
-  production mutation.
+```sh
+env PATH=/usr/bin:/bin ./scripts/verify-live-deployment.sh \
+  https://agent-diff-gate.sociobot.in '' \
+  6082c6d49f621e39d2917091242aafbfd9be365d \
+  sociobotregistry.azurecr.io/sf-agent-diff-gate:6082c6d49f62
+```
 
-The recurring root cause was outside the product process. After each repair
-turn, the factory worker ran its generic container helper. That helper issued
-a full ARM `PUT` with only `PORT`, scale `1–3`, and no volume. This post-turn
-operation erased the already verified stateful deployment.
+It reached the live 404 assertions and exited with:
 
-## Repair and regression coverage
+```text
+./scripts/verify-live-deployment.sh: 76: rg: not found
+```
 
-- Added `deploy/factory-container.sh` as the repository-owned worker entry
-  point. It validates the product and port, then delegates to the existing
-  atomic stateful release.
-- Wired this work order's automatic container helper to execute that hook
-  before its generic `PUT`. The automatic deploy after this handoff therefore
-  cannot replace the stateful template.
-- Added `@claim:stateful-worker-deploy`, with a process-level fixture proving
-  the hook executes the stateful release and rejects wrong product/port input.
-- Added the exact verifier-23 revision-89 fixture and all ten missing contract
-  assertions. Its recorded 100-response `unsafe_configuration` sample is also
-  rejected even though it reached only one ephemeral storage ID.
-- Advanced `DEPLOYMENT_CONFIG_VERSION` from 5 to 6 in both runtime and
-  control-plane code.
-- Extended keyboard coverage through the final Enter-key approval action.
+`rg` was an undeclared runtime dependency in two required 404-header checks.
+The hook image provides POSIX tools but not ripgrep. The repair keeps both
+checks intact and moves them to
+[`scripts/assert-not-found-headers.sh`](../scripts/assert-not-found-headers.sh),
+which uses POSIX `awk` to assert, case-insensitively:
 
-## Production evidence
+- `X-Diff-Gate-Route: not-found`
+- `X-Robots-Tag: noindex`
 
-The committed repair built in ACR from a `.git`-free archive as
-`sociobotregistry.azurecr.io/sf-agent-diff-gate:ca4167b38584`, digest
-`sha256:5fe7cdc06e5628f94040ce66ab6ea38a18fa91e5fcc36271c43c134f510a8d25`.
-After a deliberate replacement, revision `sf-agent-diff-gate--0000091`
-reported:
+The HTTP 404 status assertion remains immediately before the header assertion;
+no live check was removed or relaxed.
 
-- `/health` → HTTP 200, `status:"ok"`, build `ca4167b38584…`, durable storage
-  ID `1da0c91d-ce8d-4ea1-983d-665beebfbe13`.
-- `/api/auth/status` → HTTP 200 with `service_ready:true`, Entra configured,
-  and GitHub App setup available.
-- `/auth/entra` → tenant-bound Sociobot authorization with the production
-  callback and PKCE `S256`.
-- Anonymous `/api/packets` → HTTP 401 with sign-in recovery, not a storage 503.
-- Azure → Single revision mode, scale `1/1`, exactly one running replica,
-  Azure Files `agent-diff-gate-data-v4` at `/data`, the durable database URL,
-  public base URL, Entra values, and contract version 6.
-- Replacement → the same storage ID before and after revision replacement;
-  each 100-response probe returned one build and one storage identity.
-- Rate limit before and after replacement → exactly 40 accepted requests and
-  60 HTTP 429 responses; every rejection included `Retry-After: 1`.
-
-The final evidence commit is deployed through the same repository hook after
-this file is committed. `/health` is the authoritative final source identity,
-because placing that commit's SHA inside itself is not possible.
+Focused regression coverage in `unit/production-deployment.test.mjs` runs the
+actual helper under `PATH=/usr/bin:/bin`, accepts mixed-case CRLF headers,
+rejects a missing header, and asserts that the live verifier calls the helper
+and contains no `rg` runtime dependency. It passed as part of the unit and
+clean test suites.
 
 ## Clean local verification
 
-From a clean `npm ci`:
+From a clean `npm ci` (58 packages; zero audit vulnerabilities), all commands
+below passed:
 
 ```sh
 npm test
@@ -91,48 +67,90 @@ cargo build --release
 ./scripts/verify-runtime-contract.sh
 ```
 
-- `npm ci`: 58 packages, zero audit vulnerabilities.
-- `npm test`: 15 Node tests and 25 Playwright tests passed. The final keyboard
-  approval assertion was also rerun directly and passed.
-- All 21 exact commands in `.factory/claims.json` passed independently.
-- TypeScript, Rust formatting, and warning-free Clippy passed.
-- All 21 Rust tests and the optimized release build passed.
-- Production assets: JS 22,863 B (7.28 kB gzip), CSS 12,233 B (3.62 kB
-  gzip), and hero WebP 136,640 B.
-- The PORT-only runtime contract passed with build and storage identities.
-- Package/consumer checks are not applicable to this web-with-backend product.
-  The ACR build is the `.git`-free container-consumer check and passed.
+Evidence:
 
-## Browser, accessibility, privacy, and performance
+- `npm test`: 16 Node/unit tests and 25 Playwright tests passed. This includes
+  keyboard review, mobile 390px and 200% text reflow, visible focus, offline
+  demo use, request privacy, route semantics, light/dark Axe checks, and
+  desktop/mobile touch targets.
+- Every one of the 21 exact commands in `.factory/claims.json` was run
+  independently and passed, including the sandbox, packet export, real-team
+  boundaries, named approval, retention/deletion, audit export, no third-party
+  runtime, PORT-only health, durable reopen, and stateful worker-deploy claims.
+- `cargo test`: 21 backend unit/integration tests passed. Formatting and
+  warning-free Clippy passed, as did the release build.
+- Vite produced `dist/`; initial JS is 22.86 kB (7.28 kB gzip) and CSS is
+  12.23 kB (3.62 kB gzip).
+- The PORT-only runtime contract passed with both build and durable-store
+  identities.
 
-- Live desktop 1440×1000 and mobile 390×844 checks passed on `/`, `/demo`,
-  `/privacy`, `/terms`, and the HTTP 404 route.
-- Keyboard review, final Enter-key approval, visible focus, 44px targets,
-  mobile reflow, reduced motion, reset, export, and browser history passed.
-- Playwright Axe found no serious or critical issue on any public route in
-  light or dark treatment. There were no console or page errors.
-- The loaded sample remained usable offline. Its request log was same-origin
-  only; there were no analytics or third-party runtime scripts.
-- Factory `verify-url.sh` passed in 582 ms with title, `lang=en`, one `h1`, one
-  `main`, complete alt text, labeled controls, and no console errors.
-- Live Lighthouse mobile and desktop each scored 100/100/100/100 for
-  Performance/Accessibility/Best Practices/SEO. Mobile FCP/LCP/TBT/CLS were
-  0.9 s/1.7 s/0 ms/0; desktop values were 0.3 s/0.4 s/0 ms/0.
-- Response policy passed: documents `no-cache`; hashed assets one-year
-  immutable; the WebP one-hour `must-revalidate`; HSTS, `nosniff`, strict
-  referrer policy, header CSP, and frame denial; unknown routes HTTP 404 with
-  noindex.
+## Deployment and live verification
 
-Evidence is in `.factory/repair-21-artifacts/`.
+The repair was pushed, then deployed only through the work-order stateful
+release configuration:
 
-## Known limits
+```sh
+env PATH=/usr/bin:/bin ./scripts/deploy-production.sh
+```
 
-No release blocker remains. A non-human worker cannot complete an interactive
-Entra login or install a private GitHub App. The live tenant-only PKCE boundary
-is verified. Team isolation, import/setup, policy, evidence, approval, audit,
-retention, and deletion are covered by backend integration tests.
+ACR build `ch1fr` succeeded from a `.git`-free source archive. The release
+rendered the existing durable SQLite/Entra contract into the image above and
+ran its built-in full `verify-live-deployment.sh --replace` contract plus the
+live browser smoke suite. The replacement preserved the same durable storage
+identity.
 
-## Re-run
+I then reran the exact full contract explicitly, still without ripgrep:
+
+```sh
+env PATH=/usr/bin:/bin ./scripts/verify-live-deployment.sh \
+  https://agent-diff-gate.sociobot.in --replace \
+  92447a3aed4b2a08dfd922d1c7243df7c4164767 \
+  sociobotregistry.azurecr.io/sf-agent-diff-gate:92447a3aed4b
+```
+
+It passed. The final constrained-PATH rerun reported:
+
+```text
+Production control-plane configuration is safe for SQLite.
+Live identity configuration is ready and redirects only to Sociobot Entra with PKCE.
+Live rate limit passed: 40 accepted, 60 returned 429, and every rejection sent Retry-After: 1.
+Live deployment contract passed: expected build, one concurrent storage identity,
+global 40-request allowance with Retry-After, public Entra callback, one replica,
+Azure Files /data, and durable replacement identity 1da0c91d-ce8d-4ea1-983d-665beebfbe13.
+```
+
+Additional live evidence:
+
+- `/health` returns HTTP 200, `status:"ok"`, the deployed repair SHA, and the
+  durable store identity above.
+- `/api/auth/status` returns `service_ready:true`,
+  `entra_sign_in_configured:true`, and `github_app_setup_available:true`.
+- Control-plane contract assertion passed: Single revision mode, exactly one
+  replica, Azure Files `agent-diff-gate-data-v4` mounted at `/data`, production
+  SQLite URL, production public base URL, Entra values, and expected image.
+- The deliberate revision replacement advanced the app to revision `0000096`
+  without changing the storage identity. The live rate test again observed 40
+  accepted requests and 60 `429` responses, each with `Retry-After: 1`.
+- `node scripts/live-browser-smoke.mjs` passed on live desktop and 390px mobile:
+  cold-load console/resource checks, public routes, 404 response and recovery
+  view, keyboard focus, serious/critical Axe checks, reduced motion, offline
+  sample review/export, and same-origin-only demo requests.
+- `/opt/fleet/lib/verify-url.sh` passed in 563 ms with no console errors. It
+  recorded title `Diff Gate — Review agent-authored changes before merge`,
+  `lang=en`, one `h1`, a `main` landmark, no images missing alt text, and no
+  unlabeled buttons. Its artifacts are in `.factory/repair-22-artifacts/`.
+
+The standalone `npx @axe-core/cli` launcher could not run because this worker
+has no Chrome binary. This does not leave an accessibility gap: the repository
+uses the preinstalled Playwright Chromium and `@axe-core/playwright` 4.11.0 in
+both the full browser suite and the final live smoke; all public routes and the
+404 page passed with zero serious or critical violations.
+
+## Known limits and re-run
+
+No release blocker remains. Interactive Sociobot Entra sign-in and private
+GitHub App installation still require a real tenant user; the live tenant-only
+PKCE redirect and service readiness are verified automatically.
 
 ```sh
 npm ci
@@ -144,7 +162,5 @@ cargo test
 cargo clippy --all-targets --all-features -- -D warnings
 cargo build --release
 ./scripts/verify-runtime-contract.sh
-./scripts/verify-live-deployment.sh https://agent-diff-gate.sociobot.in
-DIFF_GATE_ARTIFACT_DIR=.factory/repair-21-artifacts/live \
-  node scripts/live-browser-smoke.mjs https://agent-diff-gate.sociobot.in
+env PATH=/usr/bin:/bin ./scripts/deploy-production.sh
 ```
