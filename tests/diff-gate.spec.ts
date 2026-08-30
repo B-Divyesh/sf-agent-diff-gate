@@ -123,7 +123,12 @@ test('keyboard review can resolve every flagged check', async ({ page }) => {
   await expect(page.getByRole('button',{name:'Mark reviewed'})).toHaveCount(1);
   await page.getByRole('button',{name:'Mark reviewed'}).focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('button',{name:'Approve for merge'})).toBeEnabled();
+  const approval = page.getByRole('button',{name:'Approve for merge'});
+  await expect(approval).toBeEnabled();
+  await approval.focus();
+  await expect(approval).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', { name: 'Approved' })).toBeDisabled();
 });
 
 test('demo state is isolated in its namespace and reset restores the shipped packet', async ({ page }) => {
