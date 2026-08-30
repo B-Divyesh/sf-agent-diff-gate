@@ -73,8 +73,7 @@ not_found_headers=$(mktemp)
 trap 'rm -f "$not_found_headers"' EXIT
 not_found_status=$(curl --silent --dump-header "$not_found_headers" --output /dev/null --write-out '%{http_code}' "$base_url/this-route-does-not-exist")
 test "$not_found_status" = 404
-rg -qi '^x-diff-gate-route: not-found' "$not_found_headers"
-rg -qi '^x-robots-tag: noindex' "$not_found_headers"
+"$repo_dir/scripts/assert-not-found-headers.sh" "$not_found_headers"
 test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$base_url/404")" = 404
 node "$repo_dir/deploy/live-rate-limit.mjs" "$base_url"
 

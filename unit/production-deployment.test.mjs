@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import {
   DATABASE_URL,
@@ -10,6 +15,13 @@ import {
 } from '../deploy/production-contract.mjs';
 import { assertRateLimitResults } from '../deploy/live-rate-limit.mjs';
 import { assertHealthIdentityResults } from '../deploy/live-health-identity.mjs';
+
+const notFoundHeaderAssertion = fileURLToPath(
+  new URL('../scripts/assert-not-found-headers.sh', import.meta.url),
+);
+const liveDeploymentVerifier = fileURLToPath(
+  new URL('../scripts/verify-live-deployment.sh', import.meta.url),
+);
 
 const runtime = {
   PUBLIC_BASE_URL: 'https://agent-diff-gate.sociobot.in',
@@ -28,6 +40,39 @@ const verifier20CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate
 const verifier21CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:ce5bf429b0b5';
 const verifier22CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:52b389fd8f0b';
 const verifier23CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:3869a47e182c';
+
+test('regression: live 404 header contract passes in the hook PATH without ripgrep', async () => {
+  const fixture = await mkdtemp(join(tmpdir(), 'diff-gate-headers-'));
+  try {
+    const validHeaders = join(fixture, 'not-found.headers');
+    const missingRobots = join(fixture, 'missing-robots.headers');
+    await writeFile(
+      validHeaders,
+      'HTTP/2 404 \r\nX-Diff-Gate-Route: not-found\r\nx-Robots-Tag: noindex\r\n\r\n',
+    );
+    await writeFile(missingRobots, 'X-Diff-Gate-Route: not-found\n');
+
+    const portableEnvironment = { ...process.env, PATH: '/usr/bin:/bin' };
+    const passing = spawnSync(notFoundHeaderAssertion, [validHeaders], {
+      encoding: 'utf8',
+      env: portableEnvironment,
+    });
+    assert.equal(passing.status, 0, passing.stderr);
+
+    const failing = spawnSync(notFoundHeaderAssertion, [missingRobots], {
+      encoding: 'utf8',
+      env: portableEnvironment,
+    });
+    assert.notEqual(failing.status, 0);
+    assert.match(failing.stderr, /Missing X-Robots-Tag: noindex/);
+
+    const verifierSource = await readFile(liveDeploymentVerifier, 'utf8');
+    assert.match(verifierSource, /assert-not-found-headers\.sh/);
+    assert.doesNotMatch(verifierSource, /\brg\b/);
+  } finally {
+    await rm(fixture, { recursive: true, force: true });
+  }
+});
 
 function factoryStatelessApp() {
   return {
