@@ -24,6 +24,7 @@ const verifier16CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate
 const verifier17CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:cfdd80845d42';
 const verifier19CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:9df61fc1e555';
 const verifier20CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:a1eaeea89db';
+const verifier21CandidateImage = 'sociobotregistry.azurecr.io/sf-agent-diff-gate:ce5bf429b0b5';
 
 function factoryStatelessApp() {
   return {
@@ -123,6 +124,24 @@ function verifier20LiveApp() {
   const app = factoryStatelessApp();
   app.properties.latestRevisionName = 'sf-agent-diff-gate--0000074';
   app.properties.template.containers[0].image = verifier20CandidateImage;
+  app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
+  app.properties.template.scale = {
+    cooldownPeriod: 300,
+    maxReplicas: 3,
+    minReplicas: 1,
+    pollingInterval: 30,
+    rules: null,
+  };
+  return app;
+}
+
+function verifier21LiveApp() {
+  // Exact read-only control-plane capture from verification 21. A generic
+  // release replaced the previously verified stateful template while keeping
+  // the candidate image, so the server correctly failed closed again.
+  const app = factoryStatelessApp();
+  app.properties.latestRevisionName = 'sf-agent-diff-gate--0000079';
+  app.properties.template.containers[0].image = verifier21CandidateImage;
   app.properties.template.containers[0].env = [{ name: 'PORT', value: '8080' }];
   app.properties.template.scale = {
     cooldownPeriod: 300,
@@ -367,6 +386,40 @@ test('regression: verifier 20 candidate deployment is rejected, then rendered re
   assert.doesNotThrow(() =>
     assertProductionContract(repaired, { image: verifier20CandidateImage, storageName, runtime }),
   );
+});
+
+test('regression: verifier 21 exact candidate deployment is rejected, then repaired atomically', () => {
+  const failingLiveConfiguration = verifier21LiveApp();
+  const options = {
+    image: verifier21CandidateImage,
+    storageName,
+    runtime,
+  };
+
+  assert.deepEqual(productionContractErrors(failingLiveConfiguration, options), [
+    'SQLite requires exactly one replica',
+    'Azure Files volume data must use agent-diff-gate-data-v4',
+    'Azure Files volume data must be mounted at /data',
+    'DATABASE_URL must match the production contract',
+    'PUBLIC_BASE_URL must match the production contract',
+    'ENTRA_AUTHORITY must match the production contract',
+    'ENTRA_TENANT_ID must match the production contract',
+    'ENTRA_CLIENT_ID must match the production contract',
+    'ENTRA_TEAM_CLAIM must match the production contract',
+    'DEPLOYMENT_CONFIG_VERSION must match the production contract',
+  ]);
+  assert.throws(
+    () => assertProductionContract(failingLiveConfiguration, options),
+    /Unsafe production configuration/,
+  );
+
+  const repaired = {
+    properties: {
+      configuration: { activeRevisionsMode: 'Single' },
+      template: renderProductionTemplate(failingLiveConfiguration, options),
+    },
+  };
+  assert.doesNotThrow(() => assertProductionContract(repaired, options));
 });
 
 test('regression: verifier 16 multiplied rate allowance fails the live probe', () => {
