@@ -40,7 +40,7 @@
 
 The public service still reported prior build
 `155e6c200f3cffa3a98f904337b695571f5ba78d` when checked after the push. The
-work-order container configuration must deploy `71bf3ad`; this repair did not
+work-order container configuration must deploy a build containing `71bf3ad`; this repair did not
 invoke the legacy repository deploy script because it accesses shared factory
 infrastructure outside the allowed product boundary. After the configured
 deployment, run `scripts/live-browser-smoke.mjs` against

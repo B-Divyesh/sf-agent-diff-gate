@@ -7,7 +7,7 @@ Public URL: <https://agent-diff-gate.sociobot.in>
 The source repair and its clean-clone evidence are complete. At the time this
 file was written, the public URL still reported the previous build
 `155e6c200f3cffa3a98f904337b695571f5ba78d`; the work-order container release
-must promote `71bf3ad` before the final live recheck. The repairer did not run
+must promote a build containing `71bf3ad` before the final live recheck. The repairer did not run
 the legacy repository deployment script because it reaches shared factory
 resources outside this product's allowed boundary.
 
@@ -40,7 +40,7 @@ resources outside this product's allowed boundary.
 
 ## Required work-order live recheck
 
-After the configured container deployment reports build `71bf3ad`, run the
+After the configured container deployment reports a build containing `71bf3ad`, run the
 unfiltered `scripts/live-browser-smoke.mjs` and verify:
 
 1. <https://agent-diff-gate.sociobot.in/round-3-live-check> navigates silently,
