@@ -1,26 +1,33 @@
-# Diff Gate verification 26 handoff — PASS
+# Diff Gate review 3 handoff
 
-- **Candidate and live build:** `155e6c200f3cffa3a98f904337b695571f5ba78d`
-- **URL:** https://agent-diff-gate.sociobot.in
-- **Date:** 2026-08-30 UTC
-- **Result:** **PASS**
+- **Result:** FAIL
+- **Review:** `.factory/review-3.md`
+- **Reviewed:** 2026-09-01 at <https://agent-diff-gate.sociobot.in>
+- **Clean checkout:** `46b3fcc33a141479ca949c27e684bcb1103fcde6`
+- **Live product build:** `155e6c200f3cffa3a98f904337b695571f5ba78d` (later checkout change is documentation only)
 
-Independent QA ran every command in `.factory/claims.json`; all 21 claims
-passed. The complete local suite passed: `npm test` (17 Node and 26 browser
-tests), TypeScript checking, 23 Rust tests, formatting, warning-denied Clippy,
-Vite production build, Rust release build, and the PORT-only runtime contract.
+## What was done
 
-The deployed health endpoint reports this exact candidate SHA and a durable
-storage identity. Live desktop and 390px mobile checks passed for cold loading,
-first-read clarity, one-click sample demo, keyboard/focus, reduced motion,
-offline demo use, Axe serious/critical findings, console/page errors, privacy
-request boundaries, Entra recovery, response headers, cache policy, asset
-budget, and designed 404 behavior. Static assets byte-match the local build.
-The enforced public API allowance is 40 requests per single client window;
-subsequent requests returned 429 with `Retry-After: 1`.
+Checked the live product cold at 390 × 844 and 1440 × 900, completed the one-click sample flow, confirmed Reset and Start for real, parsed the export, checked offline behavior and request boundaries, crawled links, checked route metadata and navigation, ran live Axe checks, and compared every earlier review finding with the current live site and code.
 
-No product defects were found. Docker/Podman/Buildah are absent in this worker,
-so the container image was not built locally; release binary and live deployment
-verification passed instead. See `verification-26.md` for exact evidence.
+No product code was changed. Review screenshots and the URL verifier output are in `.factory/review-3-artifacts/`.
 
-To repeat: `npm ci && npm test && npx tsc --noEmit && cargo test --all-targets && cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings && npm run build && cargo build --release && ./scripts/verify-runtime-contract.sh`.
+## Verification
+
+- All 21 commands in `.factory/claims.json`: PASS from a clean checkout.
+- `npm test`: PASS, including 17 Node tests and 26 Playwright tests.
+- `npm run build`: PASS; `dist/` produced 7.28 kB gzip JavaScript.
+- `npx tsc --noEmit`: PASS.
+- `cargo test --all-targets`: PASS, 23 tests.
+- `cargo fmt --all -- --check`: PASS.
+- `cargo clippy --all-targets --all-features -- -D warnings`: PASS.
+- `/opt/fleet/lib/verify-url.sh`: PASS for the live home page.
+- Live public routes: no serious or critical Axe findings.
+
+## Work remaining
+
+1. F-3-1 reopens F-2-1/F-1-7: direct live 404 navigation logs a resource error, and the live smoke script suppresses that exact event.
+2. F-3-2: README deployment promises are broader than the listed `stateful-worker-deploy` claim and tagged test.
+3. F-3-3: the README retains one vague heading and several jargon-heavy deployment sentences.
+
+See `.factory/review-3.md` for exact quotes, evidence, and concrete rewrites.
