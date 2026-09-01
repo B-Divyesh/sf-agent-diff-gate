@@ -1,6 +1,6 @@
 # Landing-page copy audit
 
-Audited again against the verification-24 repair on 2026-08-30. Commands and field labels are included where they convey visitor-facing meaning. No sentence exceeds 22 words or uses a banned marketing word.
+Audited for polish round 3 on 2026-09-01. Commands and field labels are included where they convey visitor-facing meaning. No sentence exceeds 22 words or uses a banned marketing word.
 
 | Sentence | Words | Flag |
 |---|---:|---|
@@ -37,6 +37,11 @@ Audited again against the verification-24 repair on 2026-08-30. Commands and fie
 | Sociobot did not complete sign-in. | 5 | — |
 | Sociobot returned without the sign-in details Diff Gate needs. | 9 | — |
 | That Sociobot sign-in link is incomplete or expired. | 9 | — |
+| Try the sample review | 4 | — |
+| The production release template sets one app replica, the `/data` Azure Files mount, and the SQLite database path together. | 17 | tested: production-stateful-template |
+| The factory hook calls this product's release script only for `agent-diff-gate` on port `8080`. | 14 | tested: stateful-worker-deploy |
+| Release verification checks 100 health responses before and after it replaces the app process. | 14 | tested: deployment-health-replacement |
+| Every response must report the committed build and the same database identity. | 12 | tested: deployment-health-replacement |
 
 ## Terminology
 

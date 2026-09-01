@@ -347,6 +347,25 @@ test('unknown route renders the recovery view without console errors', async ({ 
   expect(errors).toEqual([]);
 });
 
+test('container recovery navigation is noindex, explicit, and silent', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  page.on('pageerror', error => errors.push(error.message));
+
+  const response = await page.goto('http://127.0.0.1:4174/missing-container-route', { waitUntil: 'networkidle' });
+
+  expect(response?.status()).toBe(200);
+  expect(response?.headers()['x-diff-gate-route']).toBe('not-found');
+  expect(response?.headers()['x-robots-tag']).toBe('noindex');
+  await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations.filter(({ impact }) => impact === 'serious' || impact === 'critical')).toEqual([]);
+  expect(errors).toEqual([]);
+  await context.close();
+});
+
 test('dedicated 404 document keeps the public header and metadata', async ({ page }) => {
   await page.goto('/404.html');
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();

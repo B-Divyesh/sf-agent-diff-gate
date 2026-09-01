@@ -15,6 +15,7 @@ import {
 } from '../deploy/production-contract.mjs';
 import { assertRateLimitResults } from '../deploy/live-rate-limit.mjs';
 import { assertHealthIdentityResults } from '../deploy/live-health-identity.mjs';
+import { assertReplacementHealthEvidence } from '../deploy/release-health-evidence.mjs';
 
 const notFoundHeaderAssertion = fileURLToPath(
   new URL('../scripts/assert-not-found-headers.sh', import.meta.url),
@@ -643,7 +644,7 @@ test('regression: a duplicate managed variable or data mount cannot mask an unsa
   ]);
 });
 
-test('regression: one render atomically installs the image and durable SQLite contract', () => {
+test('@claim:production-stateful-template one rendered release template sets the image, one app replica, Azure Files mount, and SQLite path together', () => {
   const original = factoryStatelessApp();
   const template = renderProductionTemplate(original, { image, storageName, runtime });
   const repaired = {
@@ -666,6 +667,68 @@ test('regression: one render atomically installs the image and durable SQLite co
   );
   assert(template.containers[0].env.some(entry => entry.name === 'UNCHANGED_SECRET' && entry.secretRef === 'github-key'));
   assert.deepEqual(original, factoryStatelessApp(), 'rendering must not mutate the Azure response');
+});
+
+test('@claim:deployment-health-replacement release verification requires 100 healthy responses before and after a replacement with one unchanged database identity', () => {
+  const before = Array.from({ length: 100 }, () => ({
+    status: 'ok',
+    build: 'release-build',
+    storage_id: 'durable-store-1',
+  }));
+  const after = structuredClone(before);
+
+  assert.deepEqual(
+    assertReplacementHealthEvidence({
+      expectedBuild: 'release-build',
+      beforeRevision: 'sf-agent-diff-gate--0000101',
+      afterRevision: 'sf-agent-diff-gate--0000102',
+      beforeResults: before,
+      afterResults: after,
+    }),
+    {
+      beforeRevision: 'sf-agent-diff-gate--0000101',
+      afterRevision: 'sf-agent-diff-gate--0000102',
+      storageId: 'durable-store-1',
+      responsesBefore: 100,
+      responsesAfter: 100,
+    },
+  );
+
+  assert.throws(
+    () => assertReplacementHealthEvidence({
+      expectedBuild: 'release-build',
+      beforeRevision: 'sf-agent-diff-gate--0000101',
+      afterRevision: 'sf-agent-diff-gate--0000101',
+      beforeResults: before,
+      afterResults: after,
+    }),
+    /replacement did not create a new app revision/,
+  );
+
+  const differentStoreAfter = structuredClone(before);
+  for (const response of differentStoreAfter) response.storage_id = 'different-durable-store';
+  assert.throws(
+    () => assertReplacementHealthEvidence({
+      expectedBuild: 'release-build',
+      beforeRevision: 'sf-agent-diff-gate--0000101',
+      afterRevision: 'sf-agent-diff-gate--0000102',
+      beforeResults: before,
+      afterResults: differentStoreAfter,
+    }),
+    /replacement changed the database identity/,
+  );
+
+  after[0].storage_id = 'unexpected-store';
+  assert.throws(
+    () => assertReplacementHealthEvidence({
+      expectedBuild: 'release-build',
+      beforeRevision: 'sf-agent-diff-gate--0000101',
+      afterRevision: 'sf-agent-diff-gate--0000102',
+      beforeResults: before,
+      afterResults: after,
+    }),
+    /health probe exposed 2 storage identities/,
+  );
 });
 
 test('regression: scale, storage, mount, database path, and image are all mandatory', () => {

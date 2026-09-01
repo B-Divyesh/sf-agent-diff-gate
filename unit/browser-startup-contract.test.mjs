@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-test('@claim:sample-sandbox browser command prebuilds Rust before the health probe', async () => {
+test('browser command prebuilds Rust before the health probe', async () => {
   const packageJson = JSON.parse(await readFile(new URL('../package.json', import.meta.url)));
   const command = await readFile(new URL('../scripts/test-browser.sh', import.meta.url), 'utf8');
   const config = await readFile(new URL('../playwright.config.ts', import.meta.url), 'utf8');

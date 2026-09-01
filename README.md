@@ -2,7 +2,7 @@
 
 Review agent-authored changes before merge. Diff Gate is for small software teams that need a required owner and test evidence before a change lands.
 
-## Try it
+## Try the sample review
 
 Open `/?demo=1`, `/demo`, or click **Try it with sample data**. The sample packet includes changed files, test evidence, and owner checks. Use the banner to reset the sample or return to the real workspace.
 
@@ -57,9 +57,9 @@ Run the commands above before submitting a change.
 
 ## Deploy
 
-Run `scripts/deploy-production.sh` from a clean, committed tree on an authenticated factory worker. This command builds the image and applies the image, one-replica limit, Azure Files mount, and SQLite path in one stateful revision. The factory post-turn deploy must invoke `deploy/factory-container.sh`. This hook routes the work order to the same stateful release and prevents a generic template from replacing it.
+Run `scripts/deploy-production.sh` from a clean, committed tree on an authenticated factory worker. The production release template sets one app replica, the `/data` Azure Files mount, and the SQLite database path together.
 
-The deployment ends by sending 100 concurrent health requests, replacing the revision, and repeating that probe. Both probes must report the committed build and one unchanged durable store identity.
+The factory hook calls this product's release script only for `agent-diff-gate` on port `8080`. Release verification checks 100 health responses before and after it replaces the app process. Every response must report the committed build and the same database identity.
 
 ## Privacy and terms
 

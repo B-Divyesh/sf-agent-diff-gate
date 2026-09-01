@@ -141,9 +141,23 @@
   },
   {
     "id": "stateful-worker-deploy",
-    "claim": "The factory post-turn deployment delegates to Diff Gate's stateful production release.",
+    "claim": "The factory hook calls this product's release script only for agent-diff-gate on port 8080.",
     "where": "README deploy section and deploy/factory-container.sh",
     "test": "npm run test:unit -- --test-name-pattern @claim:stateful-worker-deploy",
-    "sandbox": "invoke the repository deployment hook with the production slug and port against a fake release script; assert the stateful script is executed, then reject wrong product and port inputs separately"
+    "sandbox": "invoke the repository deployment hook with the product slug and port against a fake release script; assert it runs, then reject wrong product and port inputs"
+  },
+  {
+    "id": "production-stateful-template",
+    "claim": "The production release template sets one app replica, the /data Azure Files mount, and the SQLite database path together.",
+    "where": "README deploy section",
+    "test": "npm run test:unit -- --test-name-pattern @claim:production-stateful-template",
+    "sandbox": "render a stateless fixture into the production template; assert one app replica, the image, the Azure Files data volume and /data mount, and the exact SQLite database URL"
+  },
+  {
+    "id": "deployment-health-replacement",
+    "claim": "Release verification checks 100 health responses before and after process replacement and requires the committed build and one unchanged database identity.",
+    "where": "README deploy section",
+    "test": "npm run test:unit -- --test-name-pattern @claim:deployment-health-replacement",
+    "sandbox": "two fixture sets of 100 healthy responses use the committed build and one database identity; reject an unchanged revision and split storage identities"
   }
 ]

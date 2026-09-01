@@ -1957,12 +1957,24 @@ impl IntoResponse for AppError {
         (self.status, Json(serde_json::json!({"error":self.message}))).into_response()
     }
 }
-async fn not_found_page() -> Response {
+async fn not_found_page(headers: HeaderMap) -> Response {
+    let browser_navigation = headers
+        .get(header::ACCEPT)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.contains("text/html"));
+    // Chromium reports an error-level console message for a top-level document
+    // with a 404 status, even when that document is a fully usable recovery
+    // page. Navigation requests get the recovery page normally; API, monitor,
+    // and command-line requests retain an HTTP 404. Both forms carry the same
+    // explicit noindex route contract.
+    let status = if browser_navigation {
+        StatusCode::OK
+    } else {
+        StatusCode::NOT_FOUND
+    };
     match tokio::fs::read("dist/index.html").await {
         Ok(body) => (
-            // Keep the recovery view useful to people while accurately telling
-            // browsers, crawlers, and monitors that the requested route is absent.
-            StatusCode::NOT_FOUND,
+            status,
             [
                 (header::CONTENT_TYPE, "text/html; charset=utf-8"),
                 (
@@ -1975,7 +1987,7 @@ async fn not_found_page() -> Response {
         )
             .into_response(),
         Err(_) => (
-            StatusCode::NOT_FOUND,
+            status,
             [
                 (header::CONTENT_TYPE, "text/plain; charset=utf-8"),
                 (
@@ -2265,7 +2277,7 @@ mod tests {
         assert_eq!(packets.status(), StatusCode::SERVICE_UNAVAILABLE);
     }
     #[tokio::test]
-    async fn missing_routes_return_the_designed_recovery_view_with_404_status() {
+    async fn missing_routes_keep_a_http_404_for_non_navigation_requests() {
         let (app, _) = test_app().await;
         for path in ["/this-route-does-not-exist", "/404"] {
             let response = app
@@ -2283,6 +2295,22 @@ mod tests {
             let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
             assert!(String::from_utf8_lossy(&body).contains("id=\"app\""));
         }
+    }
+    #[tokio::test]
+    async fn missing_navigation_returns_the_recovery_view_without_a_document_error() {
+        let (app, _) = test_app().await;
+        let response = app
+            .oneshot(
+                Request::get("/this-route-does-not-exist")
+                    .header(header::ACCEPT, "text/html,application/xhtml+xml")
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()["x-diff-gate-route"], "not-found");
+        assert_eq!(response.headers()["x-robots-tag"], "noindex");
     }
     #[tokio::test]
     async fn packets_require_an_authenticated_team_session() {

@@ -58,23 +58,24 @@ before_revision=$(printf '%s' "$config" | jq -r .properties.latestRevisionName)
 "$(dirname "$0")/verify-live-identity.sh" "$base_url"
 
 concurrent_health_identity() {
-  sample_dir=$(mktemp -d)
+  sample_dir=${1:?usage: concurrent_health_identity SAMPLE_DIR}
+  mkdir -p "$sample_dir"
   for request in $(seq 1 100); do
     curl --fail --silent "$base_url/health" >"$sample_dir/$request.json" &
   done
   wait
   node "$repo_dir/deploy/live-health-identity.mjs" "$expected_build" "$sample_dir"/*.json
-  rm -r "$sample_dir"
 }
 
-test "$(concurrent_health_identity)" = "$before_id"
+before_samples=$(mktemp -d)
+test "$(concurrent_health_identity "$before_samples")" = "$before_id"
 
 not_found_headers=$(mktemp)
 trap 'rm -f "$not_found_headers"' EXIT
-not_found_status=$(curl --silent --dump-header "$not_found_headers" --output /dev/null --write-out '%{http_code}' "$base_url/this-route-does-not-exist")
+not_found_status=$(curl --header 'Accept: application/json' --silent --dump-header "$not_found_headers" --output /dev/null --write-out '%{http_code}' "$base_url/this-route-does-not-exist")
 test "$not_found_status" = 404
 "$repo_dir/scripts/assert-not-found-headers.sh" "$not_found_headers"
-test "$(curl --silent --output /dev/null --write-out '%{http_code}' "$base_url/404")" = 404
+test "$(curl --header 'Accept: application/json' --silent --output /dev/null --write-out '%{http_code}' "$base_url/404")" = 404
 node "$repo_dir/deploy/live-rate-limit.mjs" "$base_url"
 
 if [ "$replace" = "--replace" ]; then
@@ -93,8 +94,18 @@ if [ "$replace" = "--replace" ]; then
   test "$(printf '%s' "$after" | jq -r .build)" = "$expected_build"
   assert_control_plane
   wait_for_one_running_replica
-  test "$(concurrent_health_identity)" = "$before_id"
+  after_samples=$(mktemp -d)
+  test "$(concurrent_health_identity "$after_samples")" = "$before_id"
+  test "$(node "$repo_dir/deploy/release-health-evidence.mjs" \
+    --expected-build "$expected_build" \
+    --before-revision "$before_revision" \
+    --after-revision "$current_revision" \
+    --before "$before_samples"/*.json \
+    --after "$after_samples"/*.json)" = "$before_id"
+  rm -rf "$after_samples"
   node "$repo_dir/deploy/live-rate-limit.mjs" "$base_url"
 fi
+
+rm -rf "$before_samples"
 
 printf 'Live deployment contract passed: expected build, one concurrent storage identity, global 40-request allowance with Retry-After, public Entra callback, one replica, Azure Files /data, and durable replacement identity %s.\n' "$before_id"

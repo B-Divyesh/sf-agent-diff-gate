@@ -1,1 +1,1 @@
-Review agent-authored changes with required owners and test evidence before merge.
+Review agent-authored changes before merge with owner checks and test evidence.
