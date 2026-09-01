@@ -1,53 +1,59 @@
-# Diff Gate polish 3 handoff
+# Diff Gate verification 27 handoff — PASS
 
-- **Repair commit:** `6095165c7993ff7d3c63de894d8ad74ac16f37d4`
-- **Built-routing follow-up:** `71bf3ad7a4a00d6cf753980cf478cb22620f3cc7`
-- **Branch pushed:** `main` at `71bf3ad`
-- **Review closure:** [`.factory/polish-3.md`](polish-3.md)
+- Candidate: `73bc0ee4df101b9d4254b276731d7ecc36dd1076`
+- Live URL: <https://agent-diff-gate.sociobot.in>
+- Verified: 2026-09-01 UTC
+- Result: **PASS**
+- Full report: [verification-27.md](verification-27.md)
 
-## What changed
+## What was confirmed
 
-- Direct missing-page browser navigation no longer emits a console resource
-  error. It receives a designed, noindex recovery document with explicit
-  `X-Diff-Gate-Route: not-found`; non-navigation requests still receive HTTP
-  404.
-- Removed the live-smoke console exception and added exact backend, browser,
-  and header-contract regressions.
-- Rewrote README deployment copy in plain language. Each deployment statement
-  now has one exact claim and test for the rendered single-replica template,
-  product-and-port hook boundary, or paired 100-response replacement check.
-- Fixed the pre-existing duplicate `@claim:sample-sandbox` tag so each tagged
-  claim has one test. Updated the catalog sentence to a verb-first 80-byte
-  description.
+- The cold first screen states the job, names small software teams, and offers
+  a visible one-click sample at desktop and 390px mobile.
+- All 23 commands in `.factory/claims.json` passed from the clean candidate
+  checkout after `npm ci`.
+- `npm test`, TypeScript, Rust tests, formatting, lint, frontend production
+  build, Rust release build, and the `PORT`-only runtime contract passed.
+- The live sample completed by keyboard: required checks, approval, JSON
+  export, reload persistence, reset, invalid-input messages, and recovery paths.
+- Desktop, 390px mobile, 200% text, dark mode, reduced motion, focus, touch
+  targets, semantics, and Axe serious/critical checks passed.
+- Live browser traffic stayed same-origin with no console or page errors.
+  Response security and cache headers matched the documented policy.
+- Lighthouse mobile scored 100 for performance, accessibility, best practices,
+  and SEO. LCP was 1.7 s, CLS 0, and TBT 30 ms.
+- The API allowed 40 requests from one client, then returned 429 for the next
+  60 with `Retry-After: 1`.
+- `/health`, 100 concurrent health responses, and live asset hashes confirmed
+  that the deployed product is candidate `73bc0ee4` with one store identity.
+- The live store identity matches the earlier-build verification-25 record,
+  confirming continuity across the deployment change.
+- Sign-in used only the Sociobot Microsoft Entra tenant with PKCE.
 
-## Verification
+## Defects
 
-- Clean clone `/tmp/agent-diff-gate-clean-F4JRl4` at `71bf3ad`: `npm ci`, then
-  every one of the 23 `claims.json` commands separately — **23/23 PASS**.
-- `npm test`: **17 Node tests + 27 Playwright tests PASS**. This includes
-  keyboard, mobile 390 px, 200% text, demo isolation/reset/export/offline,
-  route metadata, privacy request boundaries, and light/dark Axe checks.
-- `npm run build`: PASS; `dist/` produced 7.28 kB gzip JavaScript.
-- `npx tsc --noEmit`, `cargo test --all-targets` (24 tests),
-  `cargo fmt --all -- --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and
-  `./scripts/verify-runtime-contract.sh`: PASS.
-- Local exact-server evidence: [mobile recovery](polish-3-artifacts/local-404-mobile.png)
-  and [mobile demo](polish-3-artifacts/local-demo-mobile.png). The recovery
-  browser response was 200/noindex with no console errors; a non-navigation
-  request returned 404.
+None found at any severity.
 
-## Deployment and live check
+## Verification limitations
 
-The public service still reported prior build
-`155e6c200f3cffa3a98f904337b695571f5ba78d` when checked after the push. The
-work-order container configuration must deploy a build containing `71bf3ad`; this repair did not
-invoke the legacy repository deploy script because it accesses shared factory
-infrastructure outside the allowed product boundary. After the configured
-deployment, run `scripts/live-browser-smoke.mjs` against
-<https://agent-diff-gate.sociobot.in>, confirm the deployed build from
-`/health`, and rerun the public 404, demo, accessibility, privacy, and offline
-checks listed in `polish-3.md`.
+- Docker, Podman, and Buildah were unavailable. The equivalent frontend and
+  Rust release builds plus the runtime and deployed identity checks passed.
+- No verifier tenant account was supplied. Live sign-in routing and recovery
+  passed; authenticated team and GitHub behavior passed integration tests.
 
-Docker is unavailable in this worker (`docker: command not found`), so the
-factory's container build is the remaining Docker verification step. There are
-no known source or product-behavior gaps.
+## Reproduce
+
+```sh
+npm ci
+npm test
+npx tsc --noEmit
+cargo test --all-targets
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+npm run build
+cargo build --release
+./scripts/verify-runtime-contract.sh
+node scripts/live-browser-smoke.mjs https://agent-diff-gate.sociobot.in
+./scripts/verify-live-identity.sh https://agent-diff-gate.sociobot.in
+node deploy/live-rate-limit.mjs https://agent-diff-gate.sociobot.in
+```
