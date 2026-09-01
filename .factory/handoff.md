@@ -1,33 +1,53 @@
-# Diff Gate review 3 handoff
+# Diff Gate polish 3 handoff
 
-- **Result:** FAIL
-- **Review:** `.factory/review-3.md`
-- **Reviewed:** 2026-09-01 at <https://agent-diff-gate.sociobot.in>
-- **Clean checkout:** `46b3fcc33a141479ca949c27e684bcb1103fcde6`
-- **Live product build:** `155e6c200f3cffa3a98f904337b695571f5ba78d` (later checkout change is documentation only)
+- **Repair commit:** `6095165c7993ff7d3c63de894d8ad74ac16f37d4`
+- **Built-routing follow-up:** `71bf3ad7a4a00d6cf753980cf478cb22620f3cc7`
+- **Branch pushed:** `main` at `71bf3ad`
+- **Review closure:** [`.factory/polish-3.md`](polish-3.md)
 
-## What was done
+## What changed
 
-Checked the live product cold at 390 × 844 and 1440 × 900, completed the one-click sample flow, confirmed Reset and Start for real, parsed the export, checked offline behavior and request boundaries, crawled links, checked route metadata and navigation, ran live Axe checks, and compared every earlier review finding with the current live site and code.
-
-No product code was changed. Review screenshots and the URL verifier output are in `.factory/review-3-artifacts/`.
+- Direct missing-page browser navigation no longer emits a console resource
+  error. It receives a designed, noindex recovery document with explicit
+  `X-Diff-Gate-Route: not-found`; non-navigation requests still receive HTTP
+  404.
+- Removed the live-smoke console exception and added exact backend, browser,
+  and header-contract regressions.
+- Rewrote README deployment copy in plain language. Each deployment statement
+  now has one exact claim and test for the rendered single-replica template,
+  product-and-port hook boundary, or paired 100-response replacement check.
+- Fixed the pre-existing duplicate `@claim:sample-sandbox` tag so each tagged
+  claim has one test. Updated the catalog sentence to a verb-first 80-byte
+  description.
 
 ## Verification
 
-- All 21 commands in `.factory/claims.json`: PASS from a clean checkout.
-- `npm test`: PASS, including 17 Node tests and 26 Playwright tests.
+- Clean clone `/tmp/agent-diff-gate-clean-F4JRl4` at `71bf3ad`: `npm ci`, then
+  every one of the 23 `claims.json` commands separately — **23/23 PASS**.
+- `npm test`: **17 Node tests + 27 Playwright tests PASS**. This includes
+  keyboard, mobile 390 px, 200% text, demo isolation/reset/export/offline,
+  route metadata, privacy request boundaries, and light/dark Axe checks.
 - `npm run build`: PASS; `dist/` produced 7.28 kB gzip JavaScript.
-- `npx tsc --noEmit`: PASS.
-- `cargo test --all-targets`: PASS, 23 tests.
-- `cargo fmt --all -- --check`: PASS.
-- `cargo clippy --all-targets --all-features -- -D warnings`: PASS.
-- `/opt/fleet/lib/verify-url.sh`: PASS for the live home page.
-- Live public routes: no serious or critical Axe findings.
+- `npx tsc --noEmit`, `cargo test --all-targets` (24 tests),
+  `cargo fmt --all -- --check`, `cargo clippy --all-targets --all-features -- -D warnings`, and
+  `./scripts/verify-runtime-contract.sh`: PASS.
+- Local exact-server evidence: [mobile recovery](polish-3-artifacts/local-404-mobile.png)
+  and [mobile demo](polish-3-artifacts/local-demo-mobile.png). The recovery
+  browser response was 200/noindex with no console errors; a non-navigation
+  request returned 404.
 
-## Work remaining
+## Deployment and live check
 
-1. F-3-1 reopens F-2-1/F-1-7: direct live 404 navigation logs a resource error, and the live smoke script suppresses that exact event.
-2. F-3-2: README deployment promises are broader than the listed `stateful-worker-deploy` claim and tagged test.
-3. F-3-3: the README retains one vague heading and several jargon-heavy deployment sentences.
+The public service still reported prior build
+`155e6c200f3cffa3a98f904337b695571f5ba78d` when checked after the push. The
+work-order container configuration must deploy `71bf3ad`; this repair did not
+invoke the legacy repository deploy script because it accesses shared factory
+infrastructure outside the allowed product boundary. After the configured
+deployment, run `scripts/live-browser-smoke.mjs` against
+<https://agent-diff-gate.sociobot.in>, confirm the deployed build from
+`/health`, and rerun the public 404, demo, accessibility, privacy, and offline
+checks listed in `polish-3.md`.
 
-See `.factory/review-3.md` for exact quotes, evidence, and concrete rewrites.
+Docker is unavailable in this worker (`docker: command not found`), so the
+factory's container build is the remaining Docker verification step. There are
+no known source or product-behavior gaps.
